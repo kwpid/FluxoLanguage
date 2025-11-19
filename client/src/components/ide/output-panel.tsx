@@ -210,8 +210,8 @@ export function OutputPanel({ output, onClear, activeFile, fileContents = {}, on
           )}
         </div>
 
-        <TabsContent value="output" className="flex-1 m-0 data-[state=active]:flex data-[state=inactive]:hidden">
-          <ScrollArea className="flex-1" data-testid="scroll-output">
+        <TabsContent value="output" className="flex-1 m-0 data-[state=active]:flex data-[state=inactive]:hidden overflow-hidden">
+          <ScrollArea className="w-full h-full" data-testid="scroll-output">
             {output.length === 0 ? (
               <div className="h-full flex items-center justify-center text-muted-foreground p-4" data-testid="empty-output">
                 <div className="text-center">
@@ -225,7 +225,7 @@ export function OutputPanel({ output, onClear, activeFile, fileContents = {}, on
                 {output.map((msg) => (
                   <div 
                     key={msg.id} 
-                    className={`flex gap-2 ${msg.filePath && onSourceClick ? 'cursor-pointer hover-elevate rounded-md px-2 -mx-2 py-1 -my-1' : ''}`}
+                    className={`flex gap-2 flex-wrap ${msg.filePath && onSourceClick ? 'cursor-pointer hover-elevate rounded-md px-2 -mx-2 py-1 -my-1' : ''}`}
                     data-testid={`output-message-${msg.id}`}
                     onClick={() => msg.filePath && onSourceClick?.(msg.filePath, msg.line, msg.column)}
                     title={msg.filePath ? `Click to open ${msg.filePath}${msg.line ? `:${msg.line}` : ''}` : undefined}
@@ -236,8 +236,8 @@ export function OutputPanel({ output, onClear, activeFile, fileContents = {}, on
                     <span className={`flex-shrink-0 ${getMessageColor(msg.type)}`}>
                       {getMessageIcon(msg.type)}
                     </span>
-                    <div className="flex-1 flex gap-2">
-                      <span className={getMessageColor(msg.type)}>
+                    <div className="flex-1 flex gap-2 min-w-0">
+                      <span className={`${getMessageColor(msg.type)} break-all`}>
                         {msg.message}
                       </span>
                       {msg.filePath && (

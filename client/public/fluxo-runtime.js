@@ -388,9 +388,28 @@
     
     // Convert module and export keywords
     jsCode = jsCode.replace(/\bmodule\s+.*?\n/g, '');
+    
+    // Handle import statements - convert to require calls
+    // import { thing } from "./module.fxm" -> const { thing } = require("./module.fxm")
+    jsCode = jsCode.replace(/\bimport\s+\{([^}]+)\}\s+from\s+["']([^"']+)["']/g, 'const {$1} = require("$2")');
+    // import thing from "./module.fxm" -> const thing = require("./module.fxm")
+    jsCode = jsCode.replace(/\bimport\s+(\w+)\s+from\s+["']([^"']+)["']/g, 'const $1 = require("$2")');
+    // import * as thing from "./module.fxm" -> const thing = require("./module.fxm")
+    jsCode = jsCode.replace(/\bimport\s+\*\s+as\s+(\w+)\s+from\s+["']([^"']+)["']/g, 'const $1 = require("$2")');
+    
     // Keep export statements but make them work with module.exports
     jsCode = jsCode.replace(/\bexport\s+(function\s+\w+)/g, 'module.exports.$1 = $1;');
-    jsCode = jsCode.replace(/\bexport\s+(const|let|var)\s+(\w+)/g, '$1 $2');
+    jsCode = jsCode.replace(/\bexport\s+(const|let|var)\s+(\w+)/g, function(match, keyword, varName) {
+      return keyword + ' ' + varName;
+    });
+    
+    // Handle export { thing } syntax
+    jsCode = jsCode.replace(/\bexport\s+\{([^}]+)\}/g, function(match, exports) {
+      const exportList = exports.split(',').map(function(e) { return e.trim(); });
+      return exportList.map(function(exp) {
+        return 'module.exports.' + exp + ' = ' + exp + ';';
+      }).join('\n');
+    });
     
     return jsCode;
   }
