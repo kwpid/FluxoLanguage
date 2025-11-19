@@ -81,20 +81,29 @@ export function OutputPanel({ output, onClear, activeFile, fileContents = {}, on
   };
   
   useEffect(() => {
-    // Update preview when active file changes or content changes
-    if (activeFile && fileContents[activeFile]) {
+    // Always show index.html in preview if it exists, regardless of active file
+    const indexHtmlPath = '/index.html';
+    
+    if (fileContents[indexHtmlPath]) {
+      // index.html exists - always show it with Fluxo runtime injected
+      const htmlWithRuntime = injectFluxoRuntime(fileContents[indexHtmlPath]);
+      setPreviewHtml(htmlWithRuntime);
+    } else if (activeFile && fileContents[activeFile]) {
+      // Fallback: if no index.html, show current file if it's HTML or Fluxo
       const isHtmlFile = activeFile.endsWith('.html') || activeFile.endsWith('.htm');
       const isFluxoFile = activeFile.endsWith('.fxo') || activeFile.endsWith('.fxm');
       
       if (isHtmlFile) {
         const htmlWithRuntime = injectFluxoRuntime(fileContents[activeFile]);
         setPreviewHtml(htmlWithRuntime);
-        setActiveTab('preview');
       } else if (isHtmlSupporterEnabled && isFluxoFile) {
         const wrappedHtml = wrapFluxoInHtml(fileContents[activeFile], activeFile);
         setPreviewHtml(wrappedHtml);
-        setActiveTab('preview');
+      } else {
+        setPreviewHtml('');
       }
+    } else {
+      setPreviewHtml('');
     }
   }, [activeFile, fileContents, isHtmlSupporterEnabled]);
   
@@ -132,9 +141,11 @@ export function OutputPanel({ output, onClear, activeFile, fileContents = {}, on
     return () => window.removeEventListener('message', handleMessage);
   }, [activeFile, fileContents]);
   
+  // Preview is available if index.html exists, or if active file is previewable
+  const indexHtmlExists = !!fileContents['/index.html'];
   const isHtmlFile = activeFile?.endsWith('.html') || activeFile?.endsWith('.htm');
   const isFluxoFile = activeFile?.endsWith('.fxo') || activeFile?.endsWith('.fxm');
-  const canPreview = isHtmlFile || (isHtmlSupporterEnabled && isFluxoFile);
+  const canPreview = indexHtmlExists || isHtmlFile || (isHtmlSupporterEnabled && isFluxoFile);
   
   const formatTime = (timestamp: number) => {
     const date = new Date(timestamp);
