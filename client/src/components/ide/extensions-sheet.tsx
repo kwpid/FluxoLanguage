@@ -24,11 +24,11 @@ const availableExtensions: Extension[] = [
     id: "html-supporter",
     name: "HTMLSupporter",
     version: "1.0.0",
-    description: "Enables HTML and CSS element creation with event handling support. Create interactive buttons, inputs, and other UI elements directly in Fluxo code.",
+    description: "Enables HTML support by importing Fluxo modules from HTML files. Separate your HTML and Fluxo code for better maintainability.",
     author: "Fluxo Team",
     category: "language",
     enabled: false,
-    installedAt: Date.now(),
+    isInstalled: false,
   },
 ];
 
@@ -38,6 +38,31 @@ export function ExtensionsSheet() {
 
   const { data: extensions = [], isLoading } = useQuery<Extension[]>({
     queryKey: ['/api/extensions'],
+  });
+
+  const downloadMutation = useMutation({
+    mutationFn: async (extensionId: string) => {
+      const response = await apiRequest('POST', '/api/extensions/download', { id: extensionId });
+      if (!response.ok) {
+        const error = await response.json();
+        throw new Error(error.error || 'Failed to download extension');
+      }
+      return response.json();
+    },
+    onSuccess: (result) => {
+      toast({
+        title: "Extension downloaded",
+        description: `${result.name} has been downloaded. Use terminal command 'fluxo install ${result.id}' to install it.`,
+      });
+      queryClient.invalidateQueries({ queryKey: ['/api/extensions'] });
+    },
+    onError: (error: Error) => {
+      toast({
+        title: "Download failed",
+        description: error.message,
+        variant: "destructive",
+      });
+    },
   });
 
   const installMutation = useMutation({
@@ -118,12 +143,19 @@ export function ExtensionsSheet() {
   });
 
   const filteredExtensions = extensions.filter(ext =>
-    ext.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
-    ext.description.toLowerCase().includes(searchQuery.toLowerCase())
+    ext.isInstalled &&
+    (ext.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
+    ext.description.toLowerCase().includes(searchQuery.toLowerCase()))
+  );
+
+  const downloadedButNotInstalled = extensions.filter(ext =>
+    !ext.isInstalled &&
+    (ext.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
+    ext.description.toLowerCase().includes(searchQuery.toLowerCase()))
   );
 
   const filteredAvailableExtensions = availableExtensions.filter(ext =>
-    !extensions.some(installed => installed.id === ext.id) &&
+    !extensions.some(downloaded => downloaded.id === ext.id) &&
     (ext.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
     ext.description.toLowerCase().includes(searchQuery.toLowerCase()))
   );
@@ -272,12 +304,12 @@ export function ExtensionsSheet() {
                           size="sm"
                           variant="default"
                           className="gap-2"
-                          onClick={() => installMutation.mutate(ext.id)}
-                          disabled={installMutation.isPending}
-                          data-testid={`button-install-${ext.id}`}
+                          onClick={() => downloadMutation.mutate(ext.id)}
+                          disabled={downloadMutation.isPending}
+                          data-testid={`button-download-${ext.id}`}
                         >
                           <Download className="h-4 w-4" />
-                          Install
+                          Download
                         </Button>
                       </CardHeader>
                       <CardContent className="pt-2">

@@ -17,7 +17,8 @@ export interface IStorage {
   moveFile(sourcePath: string, targetPath: string): Promise<void>;
   updateWorkspaceState(openTabs: string[], activeTab?: string): Promise<void>;
   getExtensions(): Promise<Extension[]>;
-  installExtension(extension: Extension): Promise<void>;
+  downloadExtension(extension: Extension): Promise<void>;
+  installExtension(extensionId: string): Promise<Extension>;
   uninstallExtension(extensionId: string): Promise<void>;
   toggleExtension(extensionId: string, enabled: boolean): Promise<void>;
 }
@@ -380,7 +381,7 @@ console.log("Explore the scripts/ and modules/ folders to learn more")
     return workspace.extensions || [];
   }
 
-  async installExtension(extension: Extension): Promise<void> {
+  async downloadExtension(extension: Extension): Promise<void> {
     const workspace = this.getCurrentWorkspace();
     if (!workspace.extensions) {
       workspace.extensions = [];
@@ -388,10 +389,37 @@ console.log("Explore the scripts/ and modules/ folders to learn more")
     
     const existing = workspace.extensions.find(ext => ext.id === extension.id);
     if (existing) {
+      throw new Error('Extension already downloaded');
+    }
+    
+    workspace.extensions.push({
+      ...extension,
+      downloadedAt: Date.now(),
+      isInstalled: false,
+      enabled: false,
+    });
+  }
+
+  async installExtension(extensionId: string): Promise<Extension> {
+    const workspace = this.getCurrentWorkspace();
+    if (!workspace.extensions) {
+      throw new Error('No extensions downloaded');
+    }
+    
+    const extension = workspace.extensions.find(ext => ext.id === extensionId);
+    if (!extension) {
+      throw new Error('Extension not downloaded. Please download it from the store first.');
+    }
+    
+    if (extension.isInstalled) {
       throw new Error('Extension already installed');
     }
     
-    workspace.extensions.push(extension);
+    extension.isInstalled = true;
+    extension.installedAt = Date.now();
+    extension.enabled = true;
+    
+    return extension;
   }
 
   async uninstallExtension(extensionId: string): Promise<void> {
@@ -400,12 +428,18 @@ console.log("Explore the scripts/ and modules/ folders to learn more")
       return;
     }
     
-    const index = workspace.extensions.findIndex(ext => ext.id === extensionId);
-    if (index === -1) {
+    const extension = workspace.extensions.find(ext => ext.id === extensionId);
+    if (!extension) {
       throw new Error('Extension not found');
     }
     
-    workspace.extensions.splice(index, 1);
+    if (!extension.isInstalled) {
+      throw new Error('Extension is not installed');
+    }
+    
+    extension.isInstalled = false;
+    extension.installedAt = undefined;
+    extension.enabled = false;
   }
 
   async toggleExtension(extensionId: string, enabled: boolean): Promise<void> {

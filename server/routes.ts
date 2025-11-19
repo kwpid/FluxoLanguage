@@ -10,6 +10,7 @@ import {
   moveFileRequestSchema,
   createWorkspaceRequestSchema,
   executeCodeRequestSchema,
+  downloadExtensionRequestSchema,
   installExtensionRequestSchema,
   uninstallExtensionRequestSchema,
   toggleExtensionRequestSchema,
@@ -181,15 +182,15 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
-  app.post('/api/extensions/install', async (req, res) => {
+  app.post('/api/extensions/download', async (req, res) => {
     try {
-      const data = installExtensionRequestSchema.parse(req.body);
+      const data = downloadExtensionRequestSchema.parse(req.body);
       
       // Get extension metadata from available extensions
       const extensionMeta = data.id === 'html-supporter' ? {
         name: 'HTMLSupporter',
         version: '1.0.0',
-        description: 'Enables HTML and CSS element creation with event handling support',
+        description: 'Enables HTML support by importing Fluxo modules from HTML files',
         author: 'Fluxo Team',
         category: 'language' as const,
       } : {
@@ -203,11 +204,22 @@ export async function registerRoutes(app: Express): Promise<Server> {
       const extension = {
         ...data,
         ...extensionMeta,
-        enabled: true,
-        installedAt: Date.now(),
+        enabled: false,
+        downloadedAt: Date.now(),
+        isInstalled: false,
       };
       
-      await storage.installExtension(extension);
+      await storage.downloadExtension(extension);
+      res.json(extension);
+    } catch (error: any) {
+      res.status(400).json({ error: error.message || 'Failed to download extension' });
+    }
+  });
+
+  app.post('/api/extensions/install', async (req, res) => {
+    try {
+      const data = installExtensionRequestSchema.parse(req.body);
+      const extension = await storage.installExtension(data.id);
       
       // If HTML Supporter extension, create template files
       if (data.id === 'html-supporter') {
@@ -233,17 +245,13 @@ export async function registerRoutes(app: Express): Promise<Server> {
 <body>
   <div class="container">
     <h1>Welcome to Fluxo HTML Support!</h1>
-    <p>This is a template to test HTML and CSS with Fluxo.</p>
+    <p>This template demonstrates importing Fluxo modules from HTML.</p>
     <button id="myButton" class="btn">Click Me!</button>
     <div id="output"></div>
   </div>
   
-  <script>
-    // You can add JavaScript here to interact with your Fluxo code
-    document.getElementById('myButton').addEventListener('click', function() {
-      document.getElementById('output').textContent = 'Button clicked!';
-    });
-  </script>
+  <!-- Import Fluxo module using data-fluxo-entry attribute -->
+  <script type="module" data-fluxo-entry="app.fxm"></script>
 </body>
 </html>`;
 
@@ -318,18 +326,62 @@ p {
   justify-content: center;
 }`;
 
-          const packageJsonContent = `{
-  "name": "html-support-package",
-  "version": "1.0.0",
-  "description": "HTML support package for Fluxo IDE",
-  "dependencies": {}
-}`;
+          const fluxoModuleContent = `// app.fxm - Fluxo Module for HTML Template
+// This module is imported by the HTML file using data-fluxo-entry
+
+module app {
+  // Export a function to handle button click
+  export function handleButtonClick() {
+    console.log("Button clicked from Fluxo module!")
+    // You can add more logic here
+  }
+  
+  // Example: Log a message when module loads
+  export function init() {
+    console.log("Fluxo module initialized!")
+  }
+}
+
+// Call init when module loads
+app.init()`;
+
+          const readmeContent = `# Fluxo HTML Support
+
+This folder demonstrates how to use HTML with Fluxo modules.
+
+## How It Works
+
+1. **HTML files import Fluxo modules** - HTML files cannot contain embedded Fluxo code. Instead, they import external Fluxo files using the \`data-fluxo-entry\` attribute:
+
+   \`\`\`html
+   <script type="module" data-fluxo-entry="app.fxm"></script>
+   \`\`\`
+
+2. **Fluxo Module Files (.fxm)** - These files contain modules that can export functions and variables for use in your application.
+
+3. **Folder Imports** - You can import all Fluxo files from a folder using:
+
+   \`\`\`fluxo
+   module folder "./scripts" as myScripts
+   \`\`\`
+
+## Best Practices
+
+- Use module files (.fxm) for organized, reusable code
+- Use regular Fluxo files (.fxo) for standalone scripts
+- Import modules from HTML to keep code separate and maintainable
+
+## Example Usage
+
+See \`example.html\` and \`app.fxm\` for a working example.
+`;
 
           // Create the html-templates folder and files (skip if they already exist)
           const files = [
             { name: 'example.html', content: htmlTemplateContent },
             { name: 'styles.css', content: cssTemplateContent },
-            { name: 'package.json', content: packageJsonContent },
+            { name: 'app.fxm', content: fluxoModuleContent },
+            { name: 'README.md', content: readmeContent },
           ];
           
           for (const file of files) {

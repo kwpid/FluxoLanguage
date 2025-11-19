@@ -71,8 +71,8 @@ export function Terminal() {
           addLine('output', 'Available commands:');
           addLine('output', '  help                     - Show this help message');
           addLine('output', '  clear                    - Clear terminal');
+          addLine('output', '  fluxo install <id>       - Install a downloaded extension');
           addLine('output', '  ext list                 - List installed extensions');
-          addLine('output', '  ext install <id>         - Install an extension');
           addLine('output', '  ext uninstall <id>       - Uninstall an extension');
           addLine('output', '  ext enable <id>          - Enable an extension');
           addLine('output', '  ext disable <id>         - Disable an extension');
@@ -80,6 +80,10 @@ export function Terminal() {
 
         case 'clear':
           setHistory([]);
+          break;
+
+        case 'fluxo':
+          await handleFluxoCommand(args);
           break;
 
         case 'ext':
@@ -93,6 +97,46 @@ export function Terminal() {
       }
     } catch (error: any) {
       addLine('error', error.message || 'Command failed');
+    }
+  };
+
+  const handleFluxoCommand = async (args: string[]) => {
+    if (args.length === 0) {
+      addLine('error', 'Usage: fluxo <install> <extension-id>');
+      return;
+    }
+
+    const subcommand = args[0].toLowerCase();
+    const extId = args[1];
+
+    switch (subcommand) {
+      case 'install':
+        if (!extId) {
+          addLine('error', 'Usage: fluxo install <extension-id>');
+          return;
+        }
+        try {
+          const response = await apiRequest('POST', '/api/extensions/install', { id: extId });
+          if (!response.ok) {
+            const error = await response.json();
+            addLine('error', `Failed to install: ${error.error || response.statusText}`);
+            return;
+          }
+          const result = await response.json();
+          addLine('success', `Installed extension: ${result.name}`);
+          if (result.id === 'html-supporter') {
+            addLine('output', 'Creating template files in /html-templates...');
+          }
+          queryClient.invalidateQueries({ queryKey: ['/api/extensions'] });
+          queryClient.invalidateQueries({ queryKey: ['/api/workspace'] });
+        } catch (error: any) {
+          addLine('error', `Failed to install: ${error.message}`);
+        }
+        break;
+
+      default:
+        addLine('error', `Unknown fluxo subcommand: ${subcommand}`);
+        addLine('output', 'Usage: fluxo install <extension-id>');
     }
   };
 

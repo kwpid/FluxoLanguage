@@ -1,6 +1,6 @@
 import { useState } from "react";
 import { FileNode } from "@shared/schema";
-import { ChevronRight, ChevronDown, File, Folder, FolderOpen, Plus, FolderPlus, Trash2, Edit2 } from "lucide-react";
+import { ChevronRight, ChevronDown, File, Folder, FolderOpen, Plus, FolderPlus, Trash2, Edit2, Package } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import {
   ContextMenu,
@@ -161,6 +161,8 @@ export function FileExplorer({ fileTree, onFileClick, onRefresh }: FileExplorerP
                 ) : (
                   <Folder className="h-4 w-4 mr-2 text-primary" />
                 )
+              ) : node.extension === '.fxm' ? (
+                <Package className="h-4 w-4 mr-2 text-primary" />
               ) : (
                 <File className="h-4 w-4 mr-2 text-muted-foreground" />
               )}
@@ -198,7 +200,7 @@ export function FileExplorer({ fileTree, onFileClick, onRefresh }: FileExplorerP
 
         {isFolder && isExpanded && node.children && (
           <div>
-            {node.children.map(child => renderNode(child, level + 1))}
+            {node.children.map((child: FileNode) => renderNode(child, level + 1))}
           </div>
         )}
       </div>

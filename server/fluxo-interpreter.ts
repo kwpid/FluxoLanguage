@@ -97,19 +97,42 @@ export class FluxoInterpreter {
   }
 
   private extractFluxoFromHtml(html: string): string {
+    // New approach: look for script tags with data-fluxo-entry attribute
+    const entryRegex = /<script\s+[^>]*data-fluxo-entry=["']([^"']+)["'][^>]*>/gi;
+    const entryMatches = [];
+    let match;
+    
+    while ((match = entryRegex.exec(html)) !== null) {
+      entryMatches.push(match[1]);
+    }
+    
+    if (entryMatches.length > 0) {
+      // Generate require statements for each entry point
+      const htmlFileDir = this.currentFilePath.substring(0, this.currentFilePath.lastIndexOf('/'));
+      const requireStatements = entryMatches.map(entry => {
+        let resolvedPath = entry;
+        if (!entry.startsWith('/')) {
+          resolvedPath = `${htmlFileDir}/${entry}`;
+        }
+        return `require("${resolvedPath}")`;
+      }).join('\n');
+      return requireStatements;
+    }
+    
+    // Fallback: check for old-style embedded Fluxo scripts (deprecated)
     const scriptRegex = /<script\s+[^>]*type=["']text\/fluxo["'][^>]*>([\s\S]*?)<\/script>/gi;
     const matches = [];
-    let match;
     
     while ((match = scriptRegex.exec(html)) !== null) {
       matches.push(match[1]);
     }
     
     if (matches.length === 0) {
-      this.addOutput('warning', 'No <script type="text/fluxo"> tags found in HTML file');
+      this.addOutput('warning', 'No Fluxo entry points found. Use <script data-fluxo-entry="filename.fxm"> to import Fluxo modules.');
       return '';
     }
     
+    this.addOutput('warning', 'Embedded Fluxo scripts are deprecated. Use <script data-fluxo-entry="filename.fxm"> instead.');
     return matches.join('\n\n');
   }
 
@@ -128,6 +151,8 @@ export class FluxoInterpreter {
 
       if (code.substring(pos).startsWith('require(')) {
         pos = await this.parseRequire(code, pos);
+      } else if (code.substring(pos).startsWith('module folder ')) {
+        pos = await this.parseModuleFolder(code, pos);
       } else if (code.substring(pos).startsWith('module ')) {
         pos = await this.parseModule(code, pos);
       } else if (code.substring(pos).startsWith('function ')) {
@@ -196,6 +221,75 @@ export class FluxoInterpreter {
       return pos + match[0].length;
     }
     return pos + 1;
+  }
+
+  private async parseModuleFolder(code: string, pos: number): Promise<number> {
+    const match = code.substring(pos).match(/module\s+folder\s+"([^"]+)"\s+as\s+(\w+)/);
+    if (match) {
+      const folderPath = match[1];
+      const alias = match[2];
+      const fullPath = folderPath.startsWith('/') ? folderPath : `/${folderPath}`;
+
+      try {
+        const fileTree = await storage.getFileTree();
+        const folder = this.findNodeByPath(fileTree, fullPath);
+        
+        if (!folder || folder.type !== 'folder') {
+          throw new Error(`Folder not found: ${folderPath}`);
+        }
+
+        const folderModules: Record<string, any> = {};
+
+        if (folder.children) {
+          for (const file of folder.children) {
+            if (file.type === 'file' && (file.extension === '.fxo' || file.extension === '.fxm')) {
+              const content = await storage.getFileContent(file.path);
+              if (content) {
+                const fileName = file.name.replace(/\.(fxo|fxm)$/, '');
+                
+                const moduleMatch = content.match(/module\s+(\w+)\s*\{/);
+                if (moduleMatch) {
+                  const moduleName = moduleMatch[1];
+                  await this.loadModule(content);
+                  
+                  const loadedModule = this.context.modules.get(moduleName);
+                  if (loadedModule) {
+                    const exportedFunctions: Record<string, any> = {};
+                    loadedModule.exports.forEach((func, name) => {
+                      exportedFunctions[name] = (...args: any[]) => {
+                        return this.executeFunction(func, args);
+                      };
+                    });
+                    folderModules[fileName] = exportedFunctions;
+                  }
+                }
+              }
+            }
+          }
+        }
+
+        this.context.variables.set(alias, folderModules);
+        this.addOutput('log', `Loaded ${Object.keys(folderModules).length} modules from ${folderPath} as ${alias}`);
+      } catch (error: any) {
+        throw new Error(`Failed to load folder modules: ${error.message}`);
+      }
+
+      return pos + match[0].length;
+    }
+    return pos + 1;
+  }
+
+  private findNodeByPath(nodes: any[], path: string): any {
+    for (const node of nodes) {
+      if (node.path === path) {
+        return node;
+      }
+      if (node.children) {
+        const found = this.findNodeByPath(node.children, path);
+        if (found) return found;
+      }
+    }
+    return null;
   }
 
   private async parseModule(code: string, pos: number): Promise<number> {

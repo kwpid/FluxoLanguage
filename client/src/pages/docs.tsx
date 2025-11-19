@@ -251,50 +251,93 @@ console.log("Squared:", squared) // Output: 81`}
     htmlSupport: {
       id: "html-support",
       title: "HTML Support",
-      keywords: ["html", "css", "button", "input", "onclick", "event", "ui", "interface", "create"],
+      keywords: ["html", "css", "import", "module", "data-fluxo-entry", "extension", "install"],
       content: (
         <div className="space-y-8">
           <section>
             <div className="flex items-center gap-2 mb-4">
               <Sparkles className="h-7 w-7 text-primary" />
-              <h2 className="text-3xl font-bold">HTML & UI Elements</h2>
+              <h2 className="text-3xl font-bold">HTML Support</h2>
             </div>
             <div className="bg-primary/10 border border-primary/20 rounded-md p-4 mb-6">
               <p className="text-sm font-semibold mb-2">Requires HTMLSupporter Extension</p>
               <p className="text-sm text-muted-foreground">
-                To use HTML elements and event handlers, install the <strong>HTMLSupporter</strong> extension from the Extensions panel.
+                1. Download the <strong>HTMLSupporter</strong> extension from the Extensions panel<br />
+                2. Install it using terminal: <code className="bg-muted px-2 py-1 rounded-md">fluxo install html-supporter</code>
               </p>
             </div>
             <p className="text-lg text-muted-foreground">
-              Fluxo supports creating interactive HTML and CSS elements using a simple, intuitive API. Build user interfaces,
-              handle user interactions, and create dynamic web applications.
+              HTML files work with Fluxo by importing Fluxo modules. HTML and Fluxo code are kept separate for better organization and maintainability.
             </p>
           </section>
 
           <section className="space-y-4">
-            <h3 className="text-2xl font-bold">Creating Elements</h3>
-            <p className="text-muted-foreground">
-              Use the create functions to build UI elements with properties and styles.
-            </p>
-            <div className="bg-card border border-border rounded-md p-4">
-              <pre className="font-mono text-sm text-foreground">
-{`// Create a button
-local myButton = createButton({
-  text: "Click Me",
-  class: "btn-primary"
-})
+            <h3 className="text-2xl font-bold">How It Works</h3>
+            <div className="space-y-6">
+              <div>
+                <h4 className="text-lg font-semibold mb-2">1. HTML files import Fluxo modules</h4>
+                <p className="text-muted-foreground mb-3">
+                  Use the <code className="bg-muted px-2 py-1 rounded-md text-sm">data-fluxo-entry</code> attribute to specify which Fluxo file to import:
+                </p>
+                <div className="bg-card border border-border rounded-md p-4">
+                  <pre className="font-mono text-sm text-foreground">
+{`<!DOCTYPE html>
+<html lang="en">
+<head>
+  <title>My Fluxo App</title>
+</head>
+<body>
+  <h1>Welcome!</h1>
+  <button id="myButton">Click Me</button>
+  
+  <!-- Import Fluxo module -->
+  <script type="module" data-fluxo-entry="app.fxm"></script>
+</body>
+</html>`}
+                  </pre>
+                </div>
+              </div>
 
-// Create an input field
-local nameInput = createInput({
-  type: "text",
-  placeholder: "Enter your name"
-})
+              <div>
+                <h4 className="text-lg font-semibold mb-2">2. Create Fluxo module files (.fxm)</h4>
+                <p className="text-muted-foreground mb-3">
+                  Module files contain your Fluxo logic:
+                </p>
+                <div className="bg-card border border-border rounded-md p-4">
+                  <pre className="font-mono text-sm text-foreground">
+{`// app.fxm
+module app {
+  export function init() {
+    console.log("App initialized!")
+  }
+  
+  export function handleClick() {
+    console.log("Button clicked!")
+  }
+}
 
-// Create a container div
-local container = createDiv({
-  class: "container"
-})`}
-              </pre>
+// Run initialization
+app.init()`}
+                  </pre>
+                </div>
+              </div>
+
+              <div>
+                <h4 className="text-lg font-semibold mb-2">3. Module folder imports</h4>
+                <p className="text-muted-foreground mb-3">
+                  Import all scripts from a folder at once:
+                </p>
+                <div className="bg-card border border-border rounded-md p-4">
+                  <pre className="font-mono text-sm text-foreground">
+{`// Import all .fxo and .fxm files from /scripts folder
+module folder "/scripts" as myScripts
+
+// Access modules
+myScripts.utils.someFunction()
+myScripts.helpers.anotherFunction()`}
+                  </pre>
+                </div>
+              </div>
             </div>
           </section>
 

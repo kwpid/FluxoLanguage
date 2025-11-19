@@ -9,7 +9,9 @@ export const extensionSchema = z.object({
   author: z.string(),
   category: z.enum(['theme', 'language', 'utility', 'formatter', 'linter']),
   enabled: z.boolean(),
-  installedAt: z.number(),
+  downloadedAt: z.number().optional(),
+  installedAt: z.number().optional(),
+  isInstalled: z.boolean().default(false),
 });
 
 export type Extension = z.infer<typeof extensionSchema>;
@@ -119,6 +121,12 @@ export const executeCodeResponseSchema = z.object({
 export type ExecuteCodeResponse = z.infer<typeof executeCodeResponseSchema>;
 
 // Extension request schemas
+export const downloadExtensionRequestSchema = z.object({
+  id: z.string(),
+});
+
+export type DownloadExtensionRequest = z.infer<typeof downloadExtensionRequestSchema>;
+
 export const installExtensionRequestSchema = z.object({
   id: z.string(),
 });
