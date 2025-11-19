@@ -113,6 +113,16 @@ export const executeCodeRequestSchema = z.object({
 
 export type ExecuteCodeRequest = z.infer<typeof executeCodeRequestSchema>;
 
+export const executeWorkspaceRequestSchema = z.object({
+  files: z.array(z.object({
+    path: z.string(),
+    code: z.string(),
+  })),
+  entryPoint: z.string(),
+});
+
+export type ExecuteWorkspaceRequest = z.infer<typeof executeWorkspaceRequestSchema>;
+
 export const executeCodeResponseSchema = z.object({
   output: z.array(outputMessageSchema),
   error: z.string().optional(),

@@ -137,7 +137,6 @@ export default function IDE() {
     try {
       if (isHtmlFile) {
         // For HTML files, the preview runs continuously in the browser
-        // Just show a message indicating the preview is active
         setOutput([{
           id: crypto.randomUUID(),
           type: 'success',
@@ -155,13 +154,64 @@ export default function IDE() {
           description: "HTML is running in the Preview tab",
         });
         
-        // Keep isRunning true for HTML files (they run continuously)
-        setTimeout(() => setIsRunning(false), 1000);
+        // Keep isRunning true until user stops - HTML runs continuously
       } else {
-        // For Fluxo files, execute on the backend
-        const response = await apiRequest('POST', '/api/execute', {
-          path: activeTab,
-          code: fileContents[activeTab] || '',
+        // For Fluxo files, execute entire workspace on the backend
+        // Get all Fluxo files from the file tree
+        const fluxoFiles: { path: string; code: string }[] = [];
+        
+        // Helper function to recursively find all Fluxo files
+        const findFluxoFiles = (nodes: any[]): string[] => {
+          const files: string[] = [];
+          for (const node of nodes) {
+            if (node.type === 'file' && (node.path.endsWith('.fxo') || node.path.endsWith('.fxm'))) {
+              files.push(node.path);
+            } else if (node.type === 'folder' && node.children) {
+              files.push(...findFluxoFiles(node.children));
+            }
+          }
+          return files;
+        };
+        
+        const fileTree = workspace?.fileTree ?? [];
+        const allFluxoPaths = findFluxoFiles(fileTree);
+        
+        if (allFluxoPaths.length === 0) {
+          setOutput([{
+            id: crypto.randomUUID(),
+            type: 'warning',
+            message: 'No Fluxo files found in workspace',
+            timestamp: Date.now(),
+          }]);
+          setIsRunning(false);
+          return;
+        }
+        
+        // Load content for all Fluxo files
+        for (const path of allFluxoPaths) {
+          // Use cached content if available (opened tabs), otherwise fetch from backend
+          if (fileContents[path]) {
+            fluxoFiles.push({ path, code: fileContents[path] });
+          } else {
+            try {
+              const response = await apiRequest('GET', `/api/files/content?path=${encodeURIComponent(path)}`);
+              const content = await response.text();
+              fluxoFiles.push({ path, code: content });
+            } catch (error) {
+              setOutput(prev => [...prev, {
+                id: crypto.randomUUID(),
+                type: 'warning',
+                message: `Failed to load ${path}`,
+                timestamp: Date.now(),
+              }]);
+            }
+          }
+        }
+        
+        // Execute all workspace files
+        const response = await apiRequest('POST', '/api/execute-workspace', {
+          files: fluxoFiles,
+          entryPoint: activeTab,
         });
         
         const result = await response.json();
@@ -174,6 +224,7 @@ export default function IDE() {
             description: result.error,
             variant: "destructive",
           });
+          setIsRunning(false);
         } else if (result.output && result.output.length === 0) {
           setOutput([{
             id: crypto.randomUUID(),
@@ -183,7 +234,11 @@ export default function IDE() {
           }]);
         }
         
-        setIsRunning(false);
+        // Keep isRunning true until user stops - workspace runs continuously
+        toast({
+          title: "Workspace Running",
+          description: `Executed ${fluxoFiles.length} file(s). Click Stop to halt execution.`,
+        });
       }
     } catch (error) {
       toast({

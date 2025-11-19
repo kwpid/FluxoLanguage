@@ -10,6 +10,7 @@ import {
   moveFileRequestSchema,
   createWorkspaceRequestSchema,
   executeCodeRequestSchema,
+  executeWorkspaceRequestSchema,
   downloadExtensionRequestSchema,
   installExtensionRequestSchema,
   uninstallExtensionRequestSchema,
@@ -159,6 +160,44 @@ export async function registerRoutes(app: Express): Promise<Server> {
       res.json({ 
         output: [],
         error: error.message || 'Execution failed' 
+      });
+    }
+  });
+
+  app.post('/api/execute-workspace', async (req, res) => {
+    try {
+      const data = executeWorkspaceRequestSchema.parse(req.body);
+      
+      // Sort files: modules (.fxm) first, then scripts (.fxo)
+      const moduleFiles = data.files.filter(f => f.path.endsWith('.fxm'));
+      const scriptFiles = data.files.filter(f => f.path.endsWith('.fxo'));
+      const sortedFiles = [...moduleFiles, ...scriptFiles];
+      
+      // Create a shared interpreter context using the entry point
+      const interpreter = new FluxoInterpreter(data.entryPoint);
+      let allOutput: any[] = [];
+      
+      // Execute all files in order
+      for (const file of sortedFiles) {
+        try {
+          const output = await interpreter.execute(file.code, false);
+          allOutput = [...allOutput, ...output];
+        } catch (error: any) {
+          allOutput.push({
+            id: crypto.randomUUID(),
+            type: 'error',
+            message: `Error in ${file.path}: ${error.message}`,
+            timestamp: Date.now(),
+            filePath: file.path,
+          });
+        }
+      }
+      
+      res.json({ output: allOutput });
+    } catch (error: any) {
+      res.json({ 
+        output: [],
+        error: error.message || 'Workspace execution failed' 
       });
     }
   });
