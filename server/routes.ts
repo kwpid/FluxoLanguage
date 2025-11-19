@@ -173,6 +173,37 @@ export async function registerRoutes(app: Express): Promise<Server> {
       const scriptFiles = data.files.filter(f => f.path.endsWith('.fxo'));
       const sortedFiles = [...moduleFiles, ...scriptFiles];
       
+      // Store all files temporarily in storage so imports can find them
+      for (const file of data.files) {
+        const fileContent = await storage.getFileContent(file.path);
+        if (fileContent === undefined) {
+          // File doesn't exist, create it
+          const fileName = file.path.substring(file.path.lastIndexOf('/') + 1);
+          const parentPath = file.path.substring(0, file.path.lastIndexOf('/')) || '/';
+          
+          // Ensure parent folder exists
+          if (parentPath !== '/') {
+            const parentParts = parentPath.split('/').filter(p => p);
+            let currentPath = '';
+            for (const part of parentParts) {
+              const folderPath = currentPath === '' ? `/${part}` : `${currentPath}/${part}`;
+              const folderContent = await storage.getFileContent(folderPath);
+              if (folderContent === undefined) {
+                // Create folder
+                const folderParent = currentPath === '' ? '/' : currentPath;
+                await storage.createFile(folderParent, part, 'folder');
+              }
+              currentPath = folderPath;
+            }
+          }
+          
+          await storage.createFile(parentPath, fileName, 'file', file.code);
+        } else {
+          // File exists, update it
+          await storage.updateFile(file.path, file.code);
+        }
+      }
+      
       // Create a shared interpreter context using the entry point
       const interpreter = new FluxoInterpreter(data.entryPoint);
       let allOutput: any[] = [];
@@ -180,7 +211,11 @@ export async function registerRoutes(app: Express): Promise<Server> {
       // Execute all files in order
       for (const file of sortedFiles) {
         try {
-          const output = await interpreter.execute(file.code, false);
+          // Create interpreter with correct file path for each file
+          const fileInterpreter = new FluxoInterpreter(file.path);
+          // Copy context from main interpreter to share modules/variables
+          fileInterpreter['context'] = interpreter['context'];
+          const output = await fileInterpreter.execute(file.code, false);
           allOutput = [...allOutput, ...output];
         } catch (error: any) {
           allOutput.push({
