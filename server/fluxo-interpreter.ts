@@ -166,19 +166,19 @@ export class FluxoInterpreter {
       } else if (code.substring(pos).startsWith('function ')) {
         pos = this.parseFunctionDeclaration(code, pos);
       } else if (code.substring(pos).startsWith('local ')) {
-        pos = this.parseVariableDeclaration(code, pos);
+        pos = await this.parseVariableDeclaration(code, pos);
       } else if (code.substring(pos).startsWith('wait(')) {
         pos = await this.parseWaitStatement(code, pos);
       } else if (code.substring(pos).startsWith('if ')) {
-        pos = this.parseIfStatement(code, pos);
+        pos = await this.parseIfStatement(code, pos);
       } else if (code.substring(pos).startsWith('while ')) {
-        pos = this.parseWhileLoop(code, pos);
+        pos = await this.parseWhileLoop(code, pos);
       } else if (code.substring(pos).startsWith('for ')) {
-        pos = this.parseForLoop(code, pos);
+        pos = await this.parseForLoop(code, pos);
       } else if (code.substring(pos).startsWith('return ')) {
-        pos = this.parseReturn(code, pos);
+        pos = await this.parseReturn(code, pos);
       } else {
-        pos = this.parseStatement(code, pos);
+        pos = await this.parseStatement(code, pos);
       }
 
       if (this.context.shouldReturn) break;
@@ -490,7 +490,7 @@ export class FluxoInterpreter {
 
         if (match) {
           const varName = match[1];
-          const value = this.evaluateExpression(match[2]);
+          const value = await this.evaluateExpression(match[2]);
           moduleObj.variables.set(varName, value);
           this.context.variables.set(varName, value); // Also set in context for evaluation
         }
@@ -550,14 +550,14 @@ export class FluxoInterpreter {
     return endPos;
   }
 
-  private parseVariableDeclaration(code: string, pos: number): number {
+  private async parseVariableDeclaration(code: string, pos: number): Promise<number> {
     const end = this.findStatementEnd(code, pos);
     const statement = code.substring(pos, end);
     const match = statement.match(/local\s+(\w+)\s*=\s*(.+)/);
 
     if (match) {
       const varName = match[1];
-      const value = this.evaluateExpression(match[2]);
+      const value = await this.evaluateExpression(match[2]);
       this.context.variables.set(varName, value);
     }
 
@@ -569,7 +569,7 @@ export class FluxoInterpreter {
     if (!match) return pos + 1;
 
     const secondsExpr = match[1];
-    const seconds = this.evaluateExpression(secondsExpr);
+    const seconds = await this.evaluateExpression(secondsExpr);
     const bracePos = pos + match[0].length - 1;
     const endPos = this.findMatchingBrace(code, bracePos);
     const body = code.substring(bracePos + 1, endPos - 1);
@@ -578,29 +578,29 @@ export class FluxoInterpreter {
     await new Promise(resolve => setTimeout(resolve, seconds * 1000));
     
     // Execute the block after waiting
-    this.executeBlock(body);
+    await this.executeBlock(body);
 
     return endPos;
   }
 
-  private parseIfStatement(code: string, pos: number): number {
+  private async parseIfStatement(code: string, pos: number): Promise<number> {
     const match = code.substring(pos).match(/if\s*\(([^)]+)\)\s*\{/);
     if (!match) return pos + 1;
 
-    const condition = this.evaluateExpression(match[1]);
+    const condition = await this.evaluateExpression(match[1]);
     const bracePos = pos + match[0].length - 1;
     const endPos = this.findMatchingBrace(code, bracePos);
     const body = code.substring(bracePos + 1, endPos - 1);
 
     if (condition) {
-      this.executeBlock(body);
+      await this.executeBlock(body);
     } else {
       const elseMatch = code.substring(endPos).match(/\s*else\s*\{/);
       if (elseMatch) {
         const elseBracePos = endPos + elseMatch[0].length - 1;
         const elseEndPos = this.findMatchingBrace(code, elseBracePos);
         const elseBody = code.substring(elseBracePos + 1, elseEndPos - 1);
-        this.executeBlock(elseBody);
+        await this.executeBlock(elseBody);
         return elseEndPos;
       }
     }
@@ -608,7 +608,7 @@ export class FluxoInterpreter {
     return endPos;
   }
 
-  private parseWhileLoop(code: string, pos: number): number {
+  private async parseWhileLoop(code: string, pos: number): Promise<number> {
     const match = code.substring(pos).match(/while\s*\(([^)]+)\)\s*\{/);
     if (!match) return pos + 1;
 
@@ -620,8 +620,8 @@ export class FluxoInterpreter {
     let iterations = 0;
     const maxIterations = 10000;
 
-    while (this.evaluateExpression(conditionExpr) && iterations < maxIterations) {
-      this.executeBlock(body);
+    while (await this.evaluateExpression(conditionExpr) && iterations < maxIterations) {
+      await this.executeBlock(body);
       if (this.context.shouldReturn) break;
       iterations++;
     }
@@ -629,7 +629,7 @@ export class FluxoInterpreter {
     return endPos;
   }
 
-  private parseForLoop(code: string, pos: number): number {
+  private async parseForLoop(code: string, pos: number): Promise<number> {
     const match = code.substring(pos).match(/for\s*\(([^;]+);([^;]+);([^)]+)\)\s*\{/);
     if (!match) return pos + 1;
 
@@ -640,31 +640,31 @@ export class FluxoInterpreter {
     const endPos = this.findMatchingBrace(code, bracePos);
     const body = code.substring(bracePos + 1, endPos - 1);
 
-    this.parseStatement(init, 0);
+    await this.parseStatement(init, 0);
 
     let iterations = 0;
     const maxIterations = 10000;
 
-    while (this.evaluateExpression(conditionExpr) && iterations < maxIterations) {
-      this.executeBlock(body);
+    while (await this.evaluateExpression(conditionExpr) && iterations < maxIterations) {
+      await this.executeBlock(body);
       if (this.context.shouldReturn) break;
-      this.parseStatement(increment, 0);
+      await this.parseStatement(increment, 0);
       iterations++;
     }
 
     return endPos;
   }
 
-  private parseReturn(code: string, pos: number): number {
+  private async parseReturn(code: string, pos: number): Promise<number> {
     const end = this.findStatementEnd(code, pos);
     const statement = code.substring(pos, end);
     const value = statement.substring(7).trim();
-    this.context.returnValue = this.evaluateExpression(value);
+    this.context.returnValue = await this.evaluateExpression(value);
     this.context.shouldReturn = true;
     return end;
   }
 
-  private parseStatement(code: string, pos: number): number {
+  private async parseStatement(code: string, pos: number): Promise<number> {
     const end = this.findStatementEnd(code, pos);
     const statement = code.substring(pos, end).trim();
 
@@ -673,16 +673,16 @@ export class FluxoInterpreter {
     if (statement.includes('=') && !statement.includes('==') && !statement.includes('!=') && !statement.includes('<=') && !statement.includes('>=')) {
       const parts = statement.split('=');
       const varName = parts[0].trim();
-      const value = this.evaluateExpression(parts.slice(1).join('=').trim());
+      const value = await this.evaluateExpression(parts.slice(1).join('=').trim());
       this.context.variables.set(varName, value);
     } else {
-      this.evaluateExpression(statement);
+      await this.evaluateExpression(statement);
     }
 
     return end;
   }
 
-  private executeBlock(code: string) {
+  private async executeBlock(code: string) {
     const interpreter = new FluxoInterpreter(this.currentFilePath);
     interpreter.context = {
       ...this.context,
@@ -696,17 +696,19 @@ export class FluxoInterpreter {
       if (pos >= code.length) break;
 
       if (code.substring(pos).startsWith('local ')) {
-        pos = interpreter.parseVariableDeclaration(code, pos);
+        pos = await interpreter.parseVariableDeclaration(code, pos);
+      } else if (code.substring(pos).startsWith('wait(')) {
+        pos = await interpreter.parseWaitStatement(code, pos);
       } else if (code.substring(pos).startsWith('if ')) {
-        pos = interpreter.parseIfStatement(code, pos);
+        pos = await interpreter.parseIfStatement(code, pos);
       } else if (code.substring(pos).startsWith('while ')) {
-        pos = interpreter.parseWhileLoop(code, pos);
+        pos = await interpreter.parseWhileLoop(code, pos);
       } else if (code.substring(pos).startsWith('for ')) {
-        pos = interpreter.parseForLoop(code, pos);
+        pos = await interpreter.parseForLoop(code, pos);
       } else if (code.substring(pos).startsWith('return ')) {
-        pos = interpreter.parseReturn(code, pos);
+        pos = await interpreter.parseReturn(code, pos);
       } else {
-        pos = interpreter.parseStatement(code, pos);
+        pos = await interpreter.parseStatement(code, pos);
       }
     }
 
@@ -744,7 +746,7 @@ export class FluxoInterpreter {
     return end;
   }
 
-  private evaluateExpression(expr: string): any {
+  private async evaluateExpression(expr: string): Promise<any> {
     expr = expr.trim();
 
     if (expr.endsWith(';')) {
@@ -769,17 +771,17 @@ export class FluxoInterpreter {
     }
 
     if (expr.includes('(') && expr.includes(')')) {
-      return this.evaluateFunctionCall(expr);
+      return await this.evaluateFunctionCall(expr);
     }
 
     if (expr.includes('==') || expr.includes('!=') || expr.includes('<=') || expr.includes('>=') || 
         (expr.includes('<') && !expr.includes('<<')) || (expr.includes('>') && !expr.includes('>>'))) {
-      return this.evaluateComparison(expr);
+      return await this.evaluateComparison(expr);
     }
 
     if (expr.includes('+') || expr.includes('-') || expr.includes('*') || expr.includes('/') || expr.includes('%')) {
       if (this.containsArithmeticOperators(expr)) {
-        return this.evaluateArithmetic(expr);
+        return await this.evaluateArithmetic(expr);
       }
     }
 
@@ -804,31 +806,36 @@ export class FluxoInterpreter {
     return false;
   }
 
-  private evaluateFunctionCall(expr: string): any {
+  private async evaluateFunctionCall(expr: string): Promise<any> {
     const funcMatch = expr.match(/(\w+(?:\.\w+)?)\s*\(([\s\S]*)\)/);
     if (funcMatch) {
       const funcName = funcMatch[1];
       const argsStr = funcMatch[2];
-      const args = this.parseArguments(argsStr);
+      const args = await this.parseArguments(argsStr);
 
       if (funcName.includes('.')) {
         const parts = funcName.split('.');
         const obj = this.context.variables.get(parts[0]);
         if (obj && typeof obj[parts[1]] === 'function') {
-          return obj[parts[1]](...args);
+          const result = obj[parts[1]](...args);
+          // Handle if the built-in function returns a promise
+          if (result instanceof Promise) {
+            return await result;
+          }
+          return result;
         }
       }
 
       if (this.context.functions.has(funcName)) {
         const func = this.context.functions.get(funcName)!;
-        return this.executeFunction(func, args);
+        return await this.executeFunction(func, args);
       }
     }
 
     return undefined;
   }
 
-  private parseArguments(argsStr: string): any[] {
+  private async parseArguments(argsStr: string): Promise<any[]> {
     if (!argsStr.trim()) return [];
     
     const args: any[] = [];
@@ -854,7 +861,7 @@ export class FluxoInterpreter {
         depth--;
         current += char;
       } else if (char === ',' && depth === 0 && !inString) {
-        args.push(this.evaluateExpression(current.trim()));
+        args.push(await this.evaluateExpression(current.trim()));
         current = '';
       } else {
         current += char;
@@ -862,13 +869,13 @@ export class FluxoInterpreter {
     }
 
     if (current.trim()) {
-      args.push(this.evaluateExpression(current.trim()));
+      args.push(await this.evaluateExpression(current.trim()));
     }
 
     return args;
   }
 
-  private executeFunction(func: FluxoFunction, args: any[]): any {
+  private async executeFunction(func: FluxoFunction, args: any[]): Promise<any> {
     const savedContext = {
       variables: new Map(this.context.variables),
       shouldReturn: this.context.shouldReturn,
@@ -886,7 +893,7 @@ export class FluxoInterpreter {
     this.context.shouldReturn = false;
     this.context.returnValue = undefined;
 
-    this.executeBlock(func.body);
+    await this.executeBlock(func.body);
 
     const result = this.context.returnValue;
 
@@ -897,7 +904,7 @@ export class FluxoInterpreter {
     return result;
   }
 
-  private evaluateArithmetic(expr: string): any {
+  private async evaluateArithmetic(expr: string): Promise<any> {
     try {
       // Check if expression contains + operator for potential string concatenation
       if (!expr.includes('+')) {
@@ -982,7 +989,7 @@ export class FluxoInterpreter {
           operands.push(Number(token));
         } else {
           // Try to evaluate as sub-expression
-          const subResult = this.evaluateExpression(token);
+          const subResult = await this.evaluateExpression(token);
           if (typeof subResult === 'string') {
             hasStringOperand = true;
           }
