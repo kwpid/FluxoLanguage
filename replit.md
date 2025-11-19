@@ -10,12 +10,14 @@ Fluxo IDE is a modern, browser-based integrated development environment specific
 - Added auto-closing brackets and quotes for improved coding efficiency
 - Enabled bracket pair colorization and matching for better code readability
 - Implemented occurrence highlighting to show all instances of selected text
+- Added format-on-type and format-on-paste capabilities for automatic code formatting
 
 **Extensions System:**
 - Created Extensions UI with Sheet component featuring Installed and Browse tabs
 - Added search functionality to filter extensions
 - Implemented HTMLSupporter extension for HTML/CSS element creation
 - Extensions can be installed, enabled/disabled, and uninstalled through the UI
+- HTMLSupporter extension automatically creates template files (example.html, styles.css) when installed
 
 **Fluxo Language Extensions:**
 - Extended language syntax to support HTML element creation (createButton, createDiv, createInput, etc.)
@@ -33,6 +35,15 @@ Fluxo IDE is a modern, browser-based integrated development environment specific
   - Best Practices
 - Added search functionality with keyword filtering across all documentation sections
 - Comprehensive examples for HTML element creation and event handling
+- Added "Copy Raw" button to copy complete documentation as plain text
+
+**Code Execution & Preview:**
+- Implemented Run button functionality to execute Fluxo code and display output
+- Added Stop button that appears during code execution
+- Created HTML Preview pane with tabs to switch between Output and Preview modes
+- Preview tab displays HTML files in a sandboxed iframe for security
+- Preview automatically updates when HTML file content changes
+- Output panel shows execution results with timestamped, color-coded messages
 
 ## User Preferences
 
