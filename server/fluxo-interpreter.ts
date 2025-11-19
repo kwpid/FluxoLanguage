@@ -113,16 +113,16 @@ export class FluxoInterpreter {
     }
     
     if (entryMatches.length > 0) {
-      // Generate require statements for each entry point
+      // Generate import statements for each entry point
       const htmlFileDir = this.currentFilePath.substring(0, this.currentFilePath.lastIndexOf('/'));
-      const requireStatements = entryMatches.map(entry => {
+      const importStatements = entryMatches.map(entry => {
         let resolvedPath = entry;
         if (!entry.startsWith('/')) {
           resolvedPath = `${htmlFileDir}/${entry}`;
         }
-        return `require("${resolvedPath}")`;
+        return `import("${resolvedPath}")`;
       }).join('\n');
-      return requireStatements;
+      return importStatements;
     }
     
     // Fallback: check for old-style embedded Fluxo scripts (deprecated)
@@ -157,8 +157,8 @@ export class FluxoInterpreter {
 
       if (code.substring(pos).startsWith('import from ')) {
         pos = await this.parseImportFrom(code, pos);
-      } else if (code.substring(pos).startsWith('require(')) {
-        pos = await this.parseRequire(code, pos);
+      } else if (code.substring(pos).startsWith('import(')) {
+        pos = await this.parseImport(code, pos);
       } else if (code.substring(pos).startsWith('module folder ')) {
         pos = await this.parseModuleFolder(code, pos);
       } else if (code.substring(pos).startsWith('module ')) {
@@ -268,8 +268,8 @@ export class FluxoInterpreter {
     return pos + 1;
   }
 
-  private async parseRequire(code: string, pos: number): Promise<number> {
-    const match = code.substring(pos).match(/require\("([^"]+)"\)/);
+  private async parseImport(code: string, pos: number): Promise<number> {
+    const match = code.substring(pos).match(/import\("([^"]+)"\)/);
     if (match) {
       const modulePath = match[1];
       const fullPath = modulePath.startsWith('/') ? modulePath : `/${modulePath}`;

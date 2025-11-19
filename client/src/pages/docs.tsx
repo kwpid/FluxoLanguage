@@ -308,12 +308,12 @@ module mathUtils {
 
             <h3 className="text-xl font-semibold mt-6">Using a Module</h3>
             <p className="text-muted-foreground">
-              Import modules using the <code className="bg-muted px-2 py-1 rounded-md text-sm">require()</code> function.
+              Import modules using the <code className="bg-muted px-2 py-1 rounded-md text-sm">import()</code> function.
             </p>
             <div className="bg-card border border-border rounded-md p-4">
               <pre className="font-mono text-sm text-foreground">
 {`// Import the module
-require("modules/mathUtils")
+import("modules/mathUtils")
 
 // Use exported functions
 local sum = mathUtils.add(10, 5)
@@ -830,10 +830,10 @@ module mathUtils {
 
 Using a Module
 
-Import modules using the require() function.
+Import modules using the import() function.
 
 Example:
-require("modules/mathUtils")
+import("modules/mathUtils")
 
 local sum = mathUtils.add(10, 5)
 local product = mathUtils.multiply(4, 7)
