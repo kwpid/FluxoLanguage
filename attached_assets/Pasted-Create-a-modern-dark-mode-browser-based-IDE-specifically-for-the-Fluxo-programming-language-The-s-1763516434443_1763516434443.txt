@@ -1,0 +1,150 @@
+Create a modern, dark-mode, browser-based IDE specifically for the Fluxo programming language. The system should allow full Fluxo coding, file/folder management, module support, and live preview/output.
+
+1️⃣ UI & Layout
+
+Dark Mode theme (clean, readable fonts, no black-on-black text)
+
+Dashboard / Workspace View:
+
+File Explorer panel (tree of folders and files)
+
+Editor panel (tabbed interface for multiple open files)
+
+Live Output / Preview panel (shows Fluxo script output or visual simulation)
+
+File Operations:
+
+Create new file
+
+Create new folder
+
+Import existing folder
+
+Save/export files
+
+Tabs & Editor:
+
+Multi-tab support
+
+Syntax highlighting for Fluxo
+
+Autocomplete for functions, variables, and modules
+
+Error detection / linting for Fluxo syntax
+
+Supports .fxo (script files) and .fxm (module files)
+
+2️⃣ Fluxo Integration
+
+Every file in the workspace is a Fluxo script or module
+
+Modules can be declared:
+
+module windowTools {
+  export function moveWindow(win, x, y) {
+    win.move:(x, y)
+  }
+}
+
+
+Require modules from other files:
+
+require("modules/windowTools")
+
+
+Fluxo scripts can interact with workspace objects:
+
+windows, apps, desktop objects (simulated environment for testing)
+
+Script output appears in the Output / Preview panel
+
+3️⃣ Editor Features
+
+Built around Monaco Editor (VS Code–style)
+
+Dark theme by default
+
+Tabbed editing
+
+File explorer integrated with editor
+
+Supports Fluxo syntax highlighting, autocomplete, and error detection
+
+Output / Preview panel:
+
+Switchable between console output or visual simulation
+
+Displays real-time execution of Fluxo scripts
+
+4️⃣ File System Simulation
+
+Tree structure for folders and files in workspace
+
+Users can:
+
+Create new files/folders
+
+Import folders
+
+Delete or rename files
+
+Preinstalled sample scripts and modules for Fluxo testing
+
+5️⃣ Modules & Script Communication
+
+Modules (.fxm) allow functions and variables to be shared across scripts
+
+Scripts (.fxo) can export functions to be used in other scripts
+
+require() handles importing modules and exposes their exported functions
+
+6️⃣ Interaction & Workflow
+
+Users can:
+
+Open multiple scripts in tabs
+
+Run scripts in the Output / Preview panel
+
+Test module communication and script automation
+
+See live results of their Fluxo code execution
+
+Workspace fully supports Fluxo’s features (functions, blocks {}, chaining : + (), variables, modules)
+
+7️⃣ Technical Requirements
+
+
+Monaco Editor for coding interface
+
+Dark-mode, modern UI
+
+Workspace state maintained (open tabs, files, and folders)
+
+Output panel shows execution results in real time
+
+Drag-and-drop support in file explorer optional
+
+8️⃣ Starter Setup
+
+Preloaded folders:
+
+scripts/ → workspace scripts
+
+modules/ → reusable Fluxo modules
+
+Sample .fxo scripts for testing Fluxo
+
+Sample .fxm modules for testing imports/exports
+
+Goal: Create a fully-functional Fluxo IDE that is:
+
+Modern, dark-mode, and visually clean
+
+Supports full Fluxo syntax, modules, and execution
+
+Includes file/folder management
+
+Has live output/preview panel
+
+Provides a coding experience similar to VS Code
