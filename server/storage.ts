@@ -1,4 +1,4 @@
-import { type FileNode, type WorkspaceState, type WorkspaceListItem } from "@shared/schema";
+import { type FileNode, type WorkspaceState, type WorkspaceListItem, type Extension } from "@shared/schema";
 import { randomUUID } from "crypto";
 
 export interface IStorage {
@@ -16,6 +16,10 @@ export interface IStorage {
   deleteFile(path: string): Promise<void>;
   moveFile(sourcePath: string, targetPath: string): Promise<void>;
   updateWorkspaceState(openTabs: string[], activeTab?: string): Promise<void>;
+  getExtensions(): Promise<Extension[]>;
+  installExtension(extension: Extension): Promise<void>;
+  uninstallExtension(extensionId: string): Promise<void>;
+  toggleExtension(extensionId: string, enabled: boolean): Promise<void>;
 }
 
 export class MemStorage implements IStorage {
@@ -36,6 +40,7 @@ export class MemStorage implements IStorage {
       fileTree: this.createInitialFileTree(),
       openTabs: ['/README.fxo'],
       activeTab: '/README.fxo',
+      extensions: [],
     };
   }
 
@@ -497,6 +502,53 @@ console.log("Explore the scripts/ and modules/ folders to learn more")
     }
     
     this.updateOpenTabPaths(sourcePath, newPath);
+  }
+
+  async getExtensions(): Promise<Extension[]> {
+    const workspace = this.getCurrentWorkspace();
+    return workspace.extensions || [];
+  }
+
+  async installExtension(extension: Extension): Promise<void> {
+    const workspace = this.getCurrentWorkspace();
+    if (!workspace.extensions) {
+      workspace.extensions = [];
+    }
+    
+    const existing = workspace.extensions.find(ext => ext.id === extension.id);
+    if (existing) {
+      throw new Error('Extension already installed');
+    }
+    
+    workspace.extensions.push(extension);
+  }
+
+  async uninstallExtension(extensionId: string): Promise<void> {
+    const workspace = this.getCurrentWorkspace();
+    if (!workspace.extensions) {
+      return;
+    }
+    
+    const index = workspace.extensions.findIndex(ext => ext.id === extensionId);
+    if (index === -1) {
+      throw new Error('Extension not found');
+    }
+    
+    workspace.extensions.splice(index, 1);
+  }
+
+  async toggleExtension(extensionId: string, enabled: boolean): Promise<void> {
+    const workspace = this.getCurrentWorkspace();
+    if (!workspace.extensions) {
+      throw new Error('No extensions installed');
+    }
+    
+    const extension = workspace.extensions.find(ext => ext.id === extensionId);
+    if (!extension) {
+      throw new Error('Extension not found');
+    }
+    
+    extension.enabled = enabled;
   }
 }
 

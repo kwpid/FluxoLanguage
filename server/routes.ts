@@ -10,6 +10,9 @@ import {
   moveFileRequestSchema,
   createWorkspaceRequestSchema,
   executeCodeRequestSchema,
+  installExtensionRequestSchema,
+  uninstallExtensionRequestSchema,
+  toggleExtensionRequestSchema,
 } from "@shared/schema";
 
 export async function registerRoutes(app: Express): Promise<Server> {
@@ -165,6 +168,55 @@ export async function registerRoutes(app: Express): Promise<Server> {
       res.json({ success: true });
     } catch (error) {
       res.status(400).json({ error: 'Failed to update workspace state' });
+    }
+  });
+
+  app.get('/api/extensions', async (req, res) => {
+    try {
+      const extensions = await storage.getExtensions();
+      res.json(extensions);
+    } catch (error) {
+      res.status(500).json({ error: 'Failed to get extensions' });
+    }
+  });
+
+  app.post('/api/extensions/install', async (req, res) => {
+    try {
+      const data = installExtensionRequestSchema.parse(req.body);
+      const extension = {
+        ...data,
+        name: data.id,
+        version: '1.0.0',
+        description: 'Custom extension',
+        author: 'User',
+        category: 'utility' as const,
+        enabled: true,
+        installedAt: Date.now(),
+      };
+      await storage.installExtension(extension);
+      res.json(extension);
+    } catch (error: any) {
+      res.status(400).json({ error: error.message || 'Failed to install extension' });
+    }
+  });
+
+  app.post('/api/extensions/uninstall', async (req, res) => {
+    try {
+      const data = uninstallExtensionRequestSchema.parse(req.body);
+      await storage.uninstallExtension(data.id);
+      res.json({ success: true });
+    } catch (error: any) {
+      res.status(400).json({ error: error.message || 'Failed to uninstall extension' });
+    }
+  });
+
+  app.post('/api/extensions/toggle', async (req, res) => {
+    try {
+      const data = toggleExtensionRequestSchema.parse(req.body);
+      await storage.toggleExtension(data.id, data.enabled);
+      res.json({ success: true });
+    } catch (error: any) {
+      res.status(400).json({ error: error.message || 'Failed to toggle extension' });
     }
   });
 

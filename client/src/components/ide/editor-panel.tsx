@@ -126,6 +126,7 @@ export function EditorPanel({
               autoClosingBrackets: 'always',
               autoClosingQuotes: 'always',
               autoClosingOvertype: 'always',
+              autoSurround: 'languageDefined',
               guides: {
                 bracketPairs: true,
                 indentation: true,

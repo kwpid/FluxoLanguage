@@ -130,10 +130,12 @@ export default function IDE() {
     setOutput([]);
     
     try {
-      const result = await apiRequest('POST', '/api/execute', {
+      const response = await apiRequest('POST', '/api/execute', {
         path: activeTab,
         code: fileContents[activeTab] || '',
       });
+      
+      const result = await response.json();
       
       setOutput(result.output || []);
       

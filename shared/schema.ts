@@ -20,6 +20,7 @@ export const workspaceStateSchema = z.object({
   openTabs: z.array(z.string()),
   activeTab: z.string().optional(),
   fileTree: z.array(fileNodeSchema),
+  extensions: z.array(z.lazy(() => extensionSchema)).optional(),
 });
 
 export type WorkspaceState = z.infer<typeof workspaceStateSchema>;
@@ -99,3 +100,46 @@ export const executeCodeResponseSchema = z.object({
 });
 
 export type ExecuteCodeResponse = z.infer<typeof executeCodeResponseSchema>;
+
+// Extension types
+export const extensionSchema = z.object({
+  id: z.string(),
+  name: z.string(),
+  version: z.string(),
+  description: z.string(),
+  author: z.string(),
+  category: z.enum(['theme', 'language', 'utility', 'formatter', 'linter']),
+  enabled: z.boolean(),
+  installedAt: z.number(),
+});
+
+export type Extension = z.infer<typeof extensionSchema>;
+
+export const installExtensionRequestSchema = z.object({
+  id: z.string(),
+});
+
+export type InstallExtensionRequest = z.infer<typeof installExtensionRequestSchema>;
+
+export const uninstallExtensionRequestSchema = z.object({
+  id: z.string(),
+});
+
+export type UninstallExtensionRequest = z.infer<typeof uninstallExtensionRequestSchema>;
+
+export const toggleExtensionRequestSchema = z.object({
+  id: z.string(),
+  enabled: z.boolean(),
+});
+
+export type ToggleExtensionRequest = z.infer<typeof toggleExtensionRequestSchema>;
+
+// Terminal command types
+export const terminalCommandSchema = z.object({
+  id: z.string(),
+  command: z.string(),
+  timestamp: z.number(),
+  output: z.array(outputMessageSchema),
+});
+
+export type TerminalCommand = z.infer<typeof terminalCommandSchema>;
