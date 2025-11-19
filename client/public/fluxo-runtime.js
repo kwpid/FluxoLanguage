@@ -414,29 +414,54 @@
     }
   };
 
-  // Load Fluxo scripts from data-fluxo-entry attributes
+  // Load Fluxo scripts from data-fluxo-entry attributes and data-fluxo-code scripts
   async function loadFluxoScripts() {
-    const scripts = document.querySelectorAll('script[data-fluxo-entry]');
-    const entryFiles = Array.from(scripts).map(s => s.getAttribute('data-fluxo-entry'));
+    // Load external entry modules first
+    const entryScripts = document.querySelectorAll('script[data-fluxo-entry]');
+    const entryFiles = Array.from(entryScripts).map(s => s.getAttribute('data-fluxo-entry'));
     
-    if (entryFiles.length === 0) {
-      console.log('No Fluxo entry scripts found');
-      return;
-    }
-    
-    console.log('Loading Fluxo entry modules:', entryFiles);
-    
-    // Load all entry modules sequentially
-    for (const entryFile of entryFiles) {
-      try {
-        await loadModule(entryFile, '');
-        console.log('✓ Loaded:', entryFile);
-      } catch (error) {
-        console.error('✗ Failed to load:', entryFile, error);
+    if (entryFiles.length > 0) {
+      console.log('Loading Fluxo entry modules:', entryFiles);
+      
+      for (const entryFile of entryFiles) {
+        try {
+          await loadModule(entryFile, '');
+          console.log('✓ Loaded:', entryFile);
+        } catch (error) {
+          console.error('✗ Failed to load:', entryFile, error);
+        }
       }
     }
     
-    console.log('All Fluxo modules loaded');
+    // Execute inline Fluxo code from data-fluxo-code scripts
+    const inlineScripts = document.querySelectorAll('script[data-fluxo-code]');
+    
+    if (inlineScripts.length > 0) {
+      console.log('Executing inline Fluxo scripts:', inlineScripts.length);
+      
+      for (const script of inlineScripts) {
+        let fluxoCode = script.textContent;
+        if (fluxoCode && fluxoCode.trim()) {
+          try {
+            // Decode HTML entities (for code that was HTML-escaped)
+            const textarea = document.createElement('textarea');
+            textarea.innerHTML = fluxoCode;
+            fluxoCode = textarea.value;
+            
+            window.executeFluxo(fluxoCode);
+            console.log('✓ Executed inline Fluxo code');
+          } catch (error) {
+            console.error('✗ Failed to execute inline Fluxo code:', error);
+          }
+        }
+      }
+    }
+    
+    if (entryFiles.length === 0 && inlineScripts.length === 0) {
+      console.log('No Fluxo scripts found');
+    } else {
+      console.log('All Fluxo modules loaded');
+    }
   }
 
   // Listen for Fluxo code from parent window (for direct execution)

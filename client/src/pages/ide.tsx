@@ -23,6 +23,10 @@ export default function IDE() {
     queryKey: ['/api/workspace'],
   });
 
+  const { data: extensions = [] } = useQuery<Array<{ id: string; enabled: boolean }>>({
+    queryKey: ['/api/extensions'],
+  });
+
   useEffect(() => {
     if (workspace && workspace.openTabs.length > 0) {
       setOpenTabs(workspace.openTabs);
@@ -340,6 +344,7 @@ export default function IDE() {
                 activeFile={activeTab}
                 fileContents={fileContents}
                 onSourceClick={handleSourceClick}
+                extensions={extensions}
               />
             </ResizablePanel>
           </ResizablePanelGroup>

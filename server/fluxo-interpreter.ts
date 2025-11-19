@@ -723,15 +723,107 @@ export class FluxoInterpreter {
 
   private evaluateArithmetic(expr: string): any {
     try {
+      // Check if expression contains + operator for potential string concatenation
+      if (!expr.includes('+')) {
+        // No + operator, definitely numeric arithmetic only
+        const replaced = expr.replace(/(\w+)/g, (match) => {
+          if (this.context.variables.has(match)) {
+            const val = this.context.variables.get(match);
+            return typeof val === 'number' ? String(val) : match;
+          }
+          return match;
+        });
+        return eval(replaced);
+      }
+      
+      // Expression contains +, tokenize respecting quotes and parentheses
+      const tokens: string[] = [];
+      let current = '';
+      let inString = false;
+      let stringChar = '';
+      let parenDepth = 0;
+      
+      for (let i = 0; i < expr.length; i++) {
+        const char = expr[i];
+        
+        if ((char === '"' || char === "'") && !inString) {
+          inString = true;
+          stringChar = char;
+          current += char;
+        } else if (char === stringChar && inString) {
+          inString = false;
+          current += char;
+        } else if (char === '(' && !inString) {
+          parenDepth++;
+          current += char;
+        } else if (char === ')' && !inString) {
+          parenDepth--;
+          current += char;
+        } else if (char === '+' && !inString && parenDepth === 0) {
+          if (current.trim()) {
+            tokens.push(current.trim());
+          }
+          current = '';
+        } else {
+          current += char;
+        }
+      }
+      
+      if (current.trim()) {
+        tokens.push(current.trim());
+      }
+      
+      // If we didn't find any top-level + to split on, fall back to numeric
+      if (tokens.length <= 1) {
+        const replaced = expr.replace(/(\w+)/g, (match) => {
+          if (this.context.variables.has(match)) {
+            const val = this.context.variables.get(match);
+            return typeof val === 'number' ? String(val) : match;
+          }
+          return match;
+        });
+        return eval(replaced);
+      }
+      
+      // Check if any token is a string
+      let hasStringOperand = false;
+      const operands: any[] = [];
+      
+      for (const token of tokens) {
+        // Check if it's a string literal
+        if ((token.startsWith('"') && token.endsWith('"')) || (token.startsWith("'") && token.endsWith("'"))) {
+          hasStringOperand = true;
+          operands.push(token.slice(1, -1)); // Remove quotes
+        } else if (this.context.variables.has(token)) {
+          // It's a variable
+          const val = this.context.variables.get(token);
+          if (typeof val === 'string') {
+            hasStringOperand = true;
+          }
+          operands.push(val);
+        } else if (!isNaN(Number(token))) {
+          // It's a number literal
+          operands.push(Number(token));
+        } else {
+          // Try to evaluate as sub-expression
+          const subResult = this.evaluateExpression(token);
+          if (typeof subResult === 'string') {
+            hasStringOperand = true;
+          }
+          operands.push(subResult);
+        }
+      }
+      
+      // If any operand is a string, do string concatenation
+      if (hasStringOperand) {
+        return operands.map(op => String(op)).join('');
+      }
+      
+      // Otherwise, numeric arithmetic with +
       const replaced = expr.replace(/(\w+)/g, (match) => {
         if (this.context.variables.has(match)) {
           const val = this.context.variables.get(match);
-          if (typeof val === 'number') {
-            return String(val);
-          } else if (typeof val === 'string') {
-            return `"${val}"`;
-          }
-          return match;
+          return typeof val === 'number' ? String(val) : match;
         }
         return match;
       });

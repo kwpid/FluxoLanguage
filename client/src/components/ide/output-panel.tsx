@@ -52,8 +52,14 @@ export function OutputPanel({ output, onClear, activeFile, fileContents = {}, on
     return html + '\n' + runtimeScript;
   };
   
-  // Wrap Fluxo code in HTML with runtime
+  // Wrap Fluxo code in HTML with runtime using data-fluxo-code
   const wrapFluxoInHtml = (fluxoCode: string, filePath: string): string => {
+    // Escape the code for safe HTML embedding
+    const escapedCode = fluxoCode
+      .replace(/&/g, '&amp;')
+      .replace(/</g, '&lt;')
+      .replace(/>/g, '&gt;');
+    
     return `<!DOCTYPE html>
 <html>
 <head>
@@ -68,10 +74,8 @@ export function OutputPanel({ output, onClear, activeFile, fileContents = {}, on
   </style>
 </head>
 <body>
-  <script data-fluxo-entry src="/fluxo-runtime.js"></script>
-  <script data-fluxo-code type="text/fluxo">
-${fluxoCode}
-  </script>
+  <script data-fluxo-runtime src="/fluxo-runtime.js"></script>
+  <script data-fluxo-code type="text/fluxo">${escapedCode}</script>
 </body>
 </html>`;
   };
@@ -185,7 +189,7 @@ ${fluxoCode}
             <TabsTrigger 
               value="preview" 
               className="h-7 text-xs" 
-              disabled={!isHtmlFile}
+              disabled={!canPreview}
               data-testid="tab-preview"
             >
               <Eye className="h-3 w-3 mr-1.5" />
@@ -250,12 +254,12 @@ ${fluxoCode}
         </TabsContent>
 
         <TabsContent value="preview" className="flex-1 m-0 data-[state=active]:flex data-[state=inactive]:hidden">
-          {isHtmlFile && previewHtml ? (
+          {canPreview && previewHtml ? (
             <iframe
               ref={iframeRef}
               srcDoc={previewHtml}
               className="w-full h-full border-0 bg-white"
-              title="HTML Preview"
+              title="Preview"
               sandbox="allow-scripts allow-same-origin"
               data-testid="preview-iframe"
             />
@@ -263,8 +267,12 @@ ${fluxoCode}
             <div className="h-full flex items-center justify-center text-muted-foreground p-4">
               <div className="text-center">
                 <Eye className="h-8 w-8 mx-auto mb-2 opacity-50" />
-                <p className="text-sm">No HTML file selected</p>
-                <p className="text-xs mt-1">Open an HTML file to see the preview</p>
+                <p className="text-sm">No previewable file selected</p>
+                <p className="text-xs mt-1">
+                  {isHtmlSupporterEnabled 
+                    ? "Open an HTML or Fluxo file to see the preview" 
+                    : "Open an HTML file to see the preview"}
+                </p>
               </div>
             </div>
           )}
