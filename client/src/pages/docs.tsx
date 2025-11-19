@@ -164,20 +164,24 @@ console.log("Multiple", "values", "work", "too")`}
           <section className="space-y-4">
             <h2 className="text-2xl font-bold">Wait Function</h2>
             <p className="text-muted-foreground">
-              The <code className="bg-muted px-2 py-1 rounded-md text-sm">wait()</code> function pauses code execution for a specified number of seconds. Supports decimal values for precise timing.
+              The <code className="bg-muted px-2 py-1 rounded-md text-sm">wait()</code> function pauses code execution for a specified number of seconds, then runs the code inside the block. Supports decimal values for precise timing.
             </p>
             <div className="bg-card border border-border rounded-md p-4">
               <pre className="font-mono text-sm text-foreground">
-{`// Wait 1 second
-console.log("Starting...")
-wait(1)
-console.log("1 second later!")
+{`// Wait 1 second, then execute the block
+wait(1) {
+  console.log("This runs after 1 second!")
+}
 
 // Wait 2.5 seconds
-wait(2.5)
+wait(2.5) {
+  console.log("This runs after 2.5 seconds")
+}
 
 // Wait 100 milliseconds
-wait(0.1)`}
+wait(0.1) {
+  console.log("This runs after 0.1 seconds")
+}`}
               </pre>
             </div>
 
@@ -189,25 +193,29 @@ wait(0.1)`}
               <pre className="font-mono text-sm text-foreground">
 {`// Countdown from 3
 console.log("3")
-wait(1)
-console.log("2")
-wait(1)
-console.log("1")
-wait(1)
-console.log("Go!")
+wait(1) {
+  console.log("2")
+  wait(1) {
+    console.log("1")
+    wait(1) {
+      console.log("Go!")
+    }
+  }
+}
 
 // Animation example
 for (local i = 0; i < 5; i = i + 1) {
-  console.log("Frame", i)
-  wait(0.5)  // Wait half a second between frames
+  wait(0.5) {
+    console.log("Frame", i)
+  }
 }`}
               </pre>
             </div>
 
             <div className="bg-primary/10 border border-primary/20 rounded-md p-4 mt-6">
-              <p className="text-sm font-semibold mb-2">Note</p>
+              <p className="text-sm font-semibold mb-2">Callback-Style Syntax</p>
               <p className="text-sm text-muted-foreground">
-                The <code className="bg-muted px-1 py-0.5 rounded-md">wait()</code> function works like Lua's wait() - it pauses execution for the specified duration in seconds. Decimal values allow for precise timing control.
+                The <code className="bg-muted px-1 py-0.5 rounded-md">wait()</code> function uses callback-style blocks. After waiting for the specified duration (in seconds), it executes the code inside the curly braces. Decimal values allow for precise timing control.
               </p>
             </div>
           </section>
