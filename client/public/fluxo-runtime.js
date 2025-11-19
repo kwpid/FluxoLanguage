@@ -344,7 +344,7 @@
   }
 
   // Execute a module and return its exports
-  function executeModule(code, modulePath) {
+  async function executeModule(code, modulePath) {
     // Create module object
     const module = { exports: {} };
     const moduleExports = module.exports;
@@ -354,15 +354,18 @@
       // Transpile Fluxo to JavaScript
       const jsCode = transpileFluxoToJS(code);
       
+      // Get AsyncFunction constructor to support await in Fluxo code
+      const AsyncFunction = Object.getPrototypeOf(async function(){}).constructor;
+      
       // Execute in sandboxed context with require, module, exports
-      const moduleFunction = new Function(
+      const moduleFunction = new AsyncFunction(
         'require', 'module', 'exports', 'console', 'select', 
         'createButton', 'createDiv', 'createInput', 'createText', 
         'createHeading', 'createParagraph', 'wait',
         jsCode
       );
       
-      moduleFunction(
+      await moduleFunction(
         require, module, moduleExports, console, 
         window.select, window.createButton, window.createDiv, 
         window.createInput, window.createText, window.createHeading, 
@@ -389,6 +392,12 @@
     // Remove comments
     jsCode = jsCode.replace(/\/\/.*$/gm, '');
     jsCode = jsCode.replace(/\/\*[\s\S]*?\*\//g, '');
+    
+    // Convert wait(seconds) { block } to await wait(seconds); block
+    // This matches wait with a callback-style block and converts it to async/await
+    jsCode = jsCode.replace(/wait\s*\(([^)]+)\)\s*\{/g, function(match, seconds) {
+      return 'await wait(' + seconds + ');\n';
+    });
     
     // Convert local to var/let
     jsCode = jsCode.replace(/\blocal\s+/g, 'let ');
@@ -422,15 +431,17 @@
   }
 
   // Execute Fluxo code immediately (for inline scripts)
-  window.executeFluxo = function(code) {
+  window.executeFluxo = async function(code) {
     try {
       const jsCode = transpileFluxoToJS(code);
-      const func = new Function(
+      // Get AsyncFunction constructor to support await in Fluxo code
+      const AsyncFunction = Object.getPrototypeOf(async function(){}).constructor;
+      const func = new AsyncFunction(
         'console', 'select', 'createButton', 'createDiv', 'createInput', 
         'createText', 'createHeading', 'createParagraph', 'wait',
         jsCode
       );
-      func(
+      await func(
         console, window.select, window.createButton, window.createDiv, 
         window.createInput, window.createText, window.createHeading, 
         window.createParagraph, window.wait

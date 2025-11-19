@@ -260,6 +260,20 @@ export function registerFluxoLanguage() {
             insertTextRules: monaco.languages.CompletionItemInsertTextRule.InsertAsSnippet,
             documentation: 'Select an HTML element by CSS selector for manipulation',
           },
+          {
+            label: 'console.log',
+            kind: monaco.languages.CompletionItemKind.Function,
+            insertText: 'console.log($0)',
+            insertTextRules: monaco.languages.CompletionItemInsertTextRule.InsertAsSnippet,
+            documentation: 'Print messages to the console for debugging',
+          },
+          {
+            label: 'wait',
+            kind: monaco.languages.CompletionItemKind.Function,
+            insertText: 'wait(${1:seconds}) {\n\t$0\n}',
+            insertTextRules: monaco.languages.CompletionItemInsertTextRule.InsertAsSnippet,
+            documentation: 'Pause execution for specified seconds, then execute the code block',
+          },
         ];
 
         // Add local functions (current file)

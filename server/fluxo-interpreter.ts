@@ -167,6 +167,8 @@ export class FluxoInterpreter {
         pos = this.parseFunctionDeclaration(code, pos);
       } else if (code.substring(pos).startsWith('local ')) {
         pos = this.parseVariableDeclaration(code, pos);
+      } else if (code.substring(pos).startsWith('wait(')) {
+        pos = await this.parseWaitStatement(code, pos);
       } else if (code.substring(pos).startsWith('if ')) {
         pos = this.parseIfStatement(code, pos);
       } else if (code.substring(pos).startsWith('while ')) {
@@ -560,6 +562,25 @@ export class FluxoInterpreter {
     }
 
     return end;
+  }
+
+  private async parseWaitStatement(code: string, pos: number): Promise<number> {
+    const match = code.substring(pos).match(/wait\s*\(([^)]+)\)\s*\{/);
+    if (!match) return pos + 1;
+
+    const secondsExpr = match[1];
+    const seconds = this.evaluateExpression(secondsExpr);
+    const bracePos = pos + match[0].length - 1;
+    const endPos = this.findMatchingBrace(code, bracePos);
+    const body = code.substring(bracePos + 1, endPos - 1);
+
+    // Wait for the specified duration
+    await new Promise(resolve => setTimeout(resolve, seconds * 1000));
+    
+    // Execute the block after waiting
+    this.executeBlock(body);
+
+    return endPos;
   }
 
   private parseIfStatement(code: string, pos: number): number {
