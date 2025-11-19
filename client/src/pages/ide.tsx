@@ -6,6 +6,7 @@ import { FileExplorer } from "@/components/ide/file-explorer";
 import { EditorPanel } from "@/components/ide/editor-panel";
 import { OutputPanel } from "@/components/ide/output-panel";
 import { Toolbar } from "@/components/ide/toolbar";
+import { Terminal } from "@/components/ide/terminal";
 import { ResizablePanelGroup, ResizablePanel, ResizableHandle } from "@/components/ui/resizable";
 import { useToast } from "@/hooks/use-toast";
 
@@ -191,36 +192,46 @@ export default function IDE() {
         currentWorkspaceName={workspace?.name || "Workspace"}
       />
       
-      <ResizablePanelGroup direction="horizontal" className="flex-1">
-        <ResizablePanel defaultSize={20} minSize={15} maxSize={35}>
-          <FileExplorer 
-            fileTree={workspace?.fileTree || []}
-            onFileClick={openFile}
-            onRefresh={() => queryClient.invalidateQueries({ queryKey: ['/api/workspace'] })}
-          />
+      <ResizablePanelGroup direction="vertical" className="flex-1">
+        <ResizablePanel defaultSize={75} minSize={50}>
+          <ResizablePanelGroup direction="horizontal">
+            <ResizablePanel defaultSize={20} minSize={15} maxSize={35}>
+              <FileExplorer 
+                fileTree={workspace?.fileTree || []}
+                onFileClick={openFile}
+                onRefresh={() => queryClient.invalidateQueries({ queryKey: ['/api/workspace'] })}
+              />
+            </ResizablePanel>
+            
+            <ResizableHandle className="w-1 bg-border hover-elevate" />
+            
+            <ResizablePanel defaultSize={55} minSize={30}>
+              <EditorPanel
+                openTabs={openTabs}
+                activeTab={activeTab}
+                fileContents={fileContents}
+                unsavedFiles={unsavedFiles}
+                onTabClick={setActiveTab}
+                onTabClose={closeTab}
+                onContentChange={updateFileContent}
+              />
+            </ResizablePanel>
+            
+            <ResizableHandle className="w-1 bg-border hover-elevate" />
+            
+            <ResizablePanel defaultSize={25} minSize={20} maxSize={40}>
+              <OutputPanel 
+                output={output}
+                onClear={() => setOutput([])}
+              />
+            </ResizablePanel>
+          </ResizablePanelGroup>
         </ResizablePanel>
         
-        <ResizableHandle className="w-1 bg-border hover-elevate" />
+        <ResizableHandle className="h-1 bg-border hover-elevate" />
         
-        <ResizablePanel defaultSize={55} minSize={30}>
-          <EditorPanel
-            openTabs={openTabs}
-            activeTab={activeTab}
-            fileContents={fileContents}
-            unsavedFiles={unsavedFiles}
-            onTabClick={setActiveTab}
-            onTabClose={closeTab}
-            onContentChange={updateFileContent}
-          />
-        </ResizablePanel>
-        
-        <ResizableHandle className="w-1 bg-border hover-elevate" />
-        
-        <ResizablePanel defaultSize={25} minSize={20} maxSize={40}>
-          <OutputPanel 
-            output={output}
-            onClear={() => setOutput([])}
-          />
+        <ResizablePanel defaultSize={25} minSize={15} maxSize={50}>
+          <Terminal />
         </ResizablePanel>
       </ResizablePanelGroup>
     </div>
