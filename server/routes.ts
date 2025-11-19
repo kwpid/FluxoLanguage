@@ -183,17 +183,140 @@ export async function registerRoutes(app: Express): Promise<Server> {
   app.post('/api/extensions/install', async (req, res) => {
     try {
       const data = installExtensionRequestSchema.parse(req.body);
-      const extension = {
-        ...data,
+      
+      // Get extension metadata from available extensions
+      const extensionMeta = data.id === 'html-supporter' ? {
+        name: 'HTMLSupporter',
+        version: '1.0.0',
+        description: 'Enables HTML and CSS element creation with event handling support',
+        author: 'Fluxo Team',
+        category: 'language' as const,
+      } : {
         name: data.id,
         version: '1.0.0',
         description: 'Custom extension',
         author: 'User',
         category: 'utility' as const,
+      };
+      
+      const extension = {
+        ...data,
+        ...extensionMeta,
         enabled: true,
         installedAt: Date.now(),
       };
+      
       await storage.installExtension(extension);
+      
+      // If HTML Supporter extension, create template files
+      if (data.id === 'html-supporter') {
+        try {
+          // Create HTML templates folder if it doesn't exist
+          const htmlTemplateContent = `<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Fluxo HTML Template</title>
+  <link rel="stylesheet" href="/html-templates/styles.css">
+</head>
+<body>
+  <div class="container">
+    <h1>Welcome to Fluxo HTML Support!</h1>
+    <p>This is a template to test HTML and CSS with Fluxo.</p>
+    <button id="myButton" class="btn">Click Me!</button>
+    <div id="output"></div>
+  </div>
+  
+  <script>
+    // You can add JavaScript here to interact with your Fluxo code
+    document.getElementById('myButton').addEventListener('click', function() {
+      document.getElementById('output').textContent = 'Button clicked!';
+    });
+  </script>
+</body>
+</html>`;
+
+          const cssTemplateContent = `* {
+  margin: 0;
+  padding: 0;
+  box-sizing: border-box;
+}
+
+body {
+  font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Oxygen, Ubuntu, Cantarell, sans-serif;
+  background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+  min-height: 100vh;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 20px;
+}
+
+.container {
+  background: white;
+  padding: 40px;
+  border-radius: 10px;
+  box-shadow: 0 20px 60px rgba(0, 0, 0, 0.3);
+  max-width: 500px;
+  width: 100%;
+  text-align: center;
+}
+
+h1 {
+  color: #333;
+  margin-bottom: 20px;
+  font-size: 28px;
+}
+
+p {
+  color: #666;
+  margin-bottom: 30px;
+  line-height: 1.6;
+}
+
+.btn {
+  background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+  color: white;
+  border: none;
+  padding: 12px 30px;
+  font-size: 16px;
+  border-radius: 5px;
+  cursor: pointer;
+  transition: transform 0.2s, box-shadow 0.2s;
+}
+
+.btn:hover {
+  transform: translateY(-2px);
+  box-shadow: 0 10px 20px rgba(102, 126, 234, 0.4);
+}
+
+.btn:active {
+  transform: translateY(0);
+}
+
+#output {
+  margin-top: 20px;
+  padding: 15px;
+  background: #f5f5f5;
+  border-radius: 5px;
+  color: #333;
+  font-weight: 500;
+  min-height: 50px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}`;
+
+          // Create the html-templates folder and files
+          await storage.createFile('/html-templates', 'index.html', 'file', htmlTemplateContent);
+          await storage.createFile('/html-templates', 'styles.css', 'file', cssTemplateContent);
+        } catch (fileError) {
+          console.error('Failed to create template files:', fileError);
+          // Continue anyway, don't fail the extension installation
+        }
+      }
+      
       res.json(extension);
     } catch (error: any) {
       res.status(400).json({ error: error.message || 'Failed to install extension' });

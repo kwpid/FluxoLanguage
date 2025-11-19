@@ -4,9 +4,11 @@ import { Button } from "@/components/ui/button";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { Input } from "@/components/ui/input";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { Code, Home, Book, Search, Sparkles } from "lucide-react";
+import { Code, Home, Book, Search, Sparkles, Copy } from "lucide-react";
+import { useToast } from "@/hooks/use-toast";
 
 export default function Docs() {
+  const { toast } = useToast();
   const [searchQuery, setSearchQuery] = useState("");
 
   const sections = useMemo(() => ({
@@ -515,6 +517,313 @@ console.log("Conversion complete!")`}
 
   const hasResults = Object.keys(filteredSections).length > 0;
 
+  const copyRawDocs = () => {
+    // Create comprehensive raw documentation text
+    let rawContent = `# Fluxo Programming Language Documentation
+
+## Getting Started
+
+Welcome to Fluxo
+
+Fluxo is a simple, beginner-friendly programming language designed for learning fundamental programming concepts.
+It features a clean syntax inspired by JavaScript with support for functions, modules, control flow, and interactive HTML elements.
+
+File Extensions
+
+.fxo - Script Files
+Regular Fluxo script files that can be executed directly. Use these for your main programs and scripts.
+
+.fxm - Module Files
+Module files that export reusable functions. These files define modules using the module keyword.
+
+## Language Basics
+
+Variables
+
+Variables in Fluxo are declared using the local keyword.
+Variables can store numbers, strings, booleans, and other values.
+
+Example:
+local name = "Alice"
+local age = 25
+local isStudent = true
+local pi = 3.14159
+
+Functions
+
+Functions are reusable blocks of code that can accept parameters and return values.
+
+Example:
+function greet(name) {
+  return "Hello, " + name + "!"
+}
+
+local message = greet("World")
+console.log(message)  // Output: Hello, World!
+
+Rest Parameters
+
+Functions can accept variable numbers of arguments using rest parameters with ...
+
+Example:
+function sum(...numbers) {
+  local total = 0
+  for (local i = 0; i < numbers.length; i = i + 1) {
+    total = total + numbers[i]
+  }
+  return total
+}
+
+local result = sum(1, 2, 3, 4, 5)
+console.log(result)  // Output: 15
+
+Operators
+
+Arithmetic Operators:
++   Addition
+-   Subtraction
+*   Multiplication
+/   Division
+%   Modulo
+
+Comparison Operators:
+==  Equal to
+!=  Not equal to
+<   Less than
+>   Greater than
+<=  Less than or equal
+>=  Greater than or equal
+
+## Control Flow
+
+If-Else Statements
+
+Execute different code blocks based on conditions.
+
+Example:
+local age = 18
+
+if (age >= 18) {
+  console.log("You are an adult")
+} else {
+  console.log("You are a minor")
+}
+
+While Loops
+
+Repeat code while a condition is true.
+
+Example:
+local count = 0
+
+while (count < 5) {
+  console.log("Count:", count)
+  count = count + 1
+}
+
+For Loops
+
+Iterate a specific number of times with initialization, condition, and increment.
+
+Example:
+for (local i = 0; i < 10; i = i + 1) {
+  console.log("Iteration:", i)
+}
+
+## Modules
+
+Working with Modules
+
+Modules allow you to organize code into reusable components. Module files use the .fxm extension.
+
+Creating a Module
+
+Example - File: modules/mathUtils.fxm:
+module mathUtils {
+  export function add(a, b) {
+    return a + b
+  }
+  
+  export function multiply(a, b) {
+    return a * b
+  }
+  
+  export function square(x) {
+    return multiply(x, x)
+  }
+}
+
+Using a Module
+
+Import modules using the require() function.
+
+Example:
+require("modules/mathUtils")
+
+local sum = mathUtils.add(10, 5)
+local product = mathUtils.multiply(4, 7)
+local squared = mathUtils.square(9)
+
+console.log("Sum:", sum)        // Output: 15
+console.log("Product:", product) // Output: 28
+console.log("Squared:", squared) // Output: 81
+
+## HTML Support
+
+HTML & UI Elements
+
+Requires HTMLSupporter Extension
+To use HTML elements and event handlers, install the HTMLSupporter extension from the Extensions panel.
+
+Fluxo supports creating interactive HTML and CSS elements using a simple, intuitive API. Build user interfaces,
+handle user interactions, and create dynamic web applications.
+
+Creating Elements
+
+Use the create functions to build UI elements with properties and styles.
+
+Example:
+local myButton = createButton({
+  text: "Click Me",
+  class: "btn-primary"
+})
+
+local nameInput = createInput({
+  type: "text",
+  placeholder: "Enter your name"
+})
+
+local container = createDiv({
+  class: "container"
+})
+
+Event Handlers
+
+Add interactivity to your elements using event handler methods.
+
+Example:
+local button = createButton({ text: "Submit" })
+button.onClick(function() {
+  console.log("Button was clicked!")
+})
+
+local input = createInput({ type: "text" })
+input.onChange(function(value) {
+  console.log("Input value:", value)
+})
+
+local card = createDiv({ class: "card" })
+card.onHover(function() {
+  console.log("Mouse is hovering!")
+})
+
+Complete Example
+
+Here's a complete interactive form example:
+
+local nameInput = createInput({
+  type: "text",
+  placeholder: "Enter your name"
+})
+
+local greetButton = createButton({
+  text: "Greet Me!"
+})
+
+local resultText = createParagraph({
+  text: ""
+})
+
+greetButton.onClick(function() {
+  local name = nameInput.value
+  
+  if (name != "") {
+    resultText.text = "Hello, " + name + "!"
+  } else {
+    resultText.text = "Please enter your name"
+  }
+})
+
+local container = createDiv({ class: "form-container" })
+container.append(nameInput)
+container.append(greetButton)
+container.append(resultText)
+
+Available Elements:
+- createButton() - Interactive button element
+- createInput() - Text input field
+- createDiv() - Container element
+- createText() - Text element
+- createParagraph() - Paragraph element
+- createHeading() - Heading element
+
+Available Events:
+- onClick() - Handle click events
+- onChange() - Handle input changes
+- onHover() - Handle mouse hover
+- onSubmit() - Handle form submission
+- onFocus() - Handle focus events
+- onBlur() - Handle blur events
+
+## Best Practices
+
+Tips and Best Practices
+
+- Use descriptive variable and function names
+- Add comments to explain complex logic
+- Break down large programs into smaller functions
+- Organize related functions into modules
+- Test your code incrementally as you write it
+- Use the console to debug and understand your program's flow
+- When creating UI elements, keep event handlers simple and focused
+- Use meaningful class names for styling elements
+
+Complete Example
+
+Temperature converter program:
+
+function celsiusToFahrenheit(celsius) {
+  return (celsius * 9 / 5) + 32
+}
+
+function fahrenheitToCelsius(fahrenheit) {
+  return (fahrenheit - 32) * 5 / 9
+}
+
+function printConversion(temp, unit) {
+  if (unit == "C") {
+    local fahrenheit = celsiusToFahrenheit(temp)
+    console.log(temp, "°C =", fahrenheit, "°F")
+  } else {
+    local celsius = fahrenheitToCelsius(temp)
+    console.log(temp, "°F =", celsius, "°C")
+  }
+}
+
+local temperatures = [0, 25, 100]
+
+for (local i = 0; i < temperatures.length; i = i + 1) {
+  local temp = temperatures[i]
+  printConversion(temp, "C")
+}
+
+console.log("Conversion complete!")
+`;
+    
+    navigator.clipboard.writeText(rawContent).then(() => {
+      toast({
+        title: "Copied!",
+        description: "Raw documentation copied to clipboard",
+      });
+    }).catch(() => {
+      toast({
+        title: "Error",
+        description: "Failed to copy documentation",
+        variant: "destructive",
+      });
+    });
+  };
+
   return (
     <div className="h-screen w-full flex flex-col bg-background text-foreground">
       <div className="h-14 border-b border-border px-6 flex items-center justify-between bg-card">
@@ -522,12 +831,18 @@ console.log("Conversion complete!")`}
           <Book className="h-6 w-6 text-primary" />
           <h1 className="text-xl font-bold">Fluxo Documentation</h1>
         </div>
-        <Link href="/">
-          <Button variant="outline" size="sm" data-testid="button-back-to-ide">
-            <Home className="h-4 w-4 mr-2" />
-            Back to IDE
+        <div className="flex items-center gap-2">
+          <Button variant="outline" size="sm" onClick={copyRawDocs} data-testid="button-copy-raw">
+            <Copy className="h-4 w-4 mr-2" />
+            Copy Raw
           </Button>
-        </Link>
+          <Link href="/">
+            <Button variant="outline" size="sm" data-testid="button-back-to-ide">
+              <Home className="h-4 w-4 mr-2" />
+              Back to IDE
+            </Button>
+          </Link>
+        </div>
       </div>
 
       <div className="flex-1 flex flex-col max-w-6xl mx-auto w-full p-6">

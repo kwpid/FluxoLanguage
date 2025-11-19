@@ -1,4 +1,4 @@
-import { Play, Save, Code2, Book } from "lucide-react";
+import { Play, Save, Code2, Book, Square } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Separator } from "@/components/ui/separator";
 import { Link } from "wouter";
@@ -7,13 +7,15 @@ import { ExtensionsSheet } from "./extensions-sheet";
 
 interface ToolbarProps {
   onRun: () => void;
+  onStop: () => void;
   onSave: () => void;
   canSave: boolean;
   canRun: boolean;
+  isRunning: boolean;
   currentWorkspaceName: string;
 }
 
-export function Toolbar({ onRun, onSave, canSave, canRun, currentWorkspaceName }: ToolbarProps) {
+export function Toolbar({ onRun, onStop, onSave, canSave, canRun, isRunning, currentWorkspaceName }: ToolbarProps) {
   return (
     <div className="h-12 border-b border-border bg-card flex items-center px-4 gap-3">
       <div className="flex items-center gap-2">
@@ -28,18 +30,31 @@ export function Toolbar({ onRun, onSave, canSave, canRun, currentWorkspaceName }
       <Separator orientation="vertical" className="h-6" />
 
       <div className="flex items-center gap-2">
-        <Button
-          size="sm"
-          variant="default"
-          onClick={onRun}
-          disabled={!canRun}
-          data-testid="button-run-code"
-          className="gap-2"
-        >
-          <Play className="h-4 w-4" />
-          Run
-          <span className="text-xs opacity-70 ml-1">⌘↵</span>
-        </Button>
+        {!isRunning ? (
+          <Button
+            size="sm"
+            variant="default"
+            onClick={onRun}
+            disabled={!canRun}
+            data-testid="button-run-code"
+            className="gap-2"
+          >
+            <Play className="h-4 w-4" />
+            Run
+            <span className="text-xs opacity-70 ml-1">⌘↵</span>
+          </Button>
+        ) : (
+          <Button
+            size="sm"
+            variant="destructive"
+            onClick={onStop}
+            data-testid="button-stop-code"
+            className="gap-2"
+          >
+            <Square className="h-4 w-4" />
+            Stop
+          </Button>
+        )}
 
         <Button
           size="sm"

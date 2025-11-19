@@ -129,6 +129,9 @@ export function EditorPanel({
               autoClosingOvertype: 'always',
               autoClosingDelete: 'always',
               autoSurround: 'languageDefined',
+              formatOnType: true,
+              formatOnPaste: true,
+              autoIndent: 'full',
               occurrencesHighlight: 'singleFile',
               selectionHighlight: true,
               guides: {

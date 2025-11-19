@@ -52,9 +52,11 @@ export function ExtensionsSheet() {
     onSuccess: (result) => {
       toast({
         title: "Extension installed",
-        description: `${result.name} has been installed successfully.`,
+        description: `${result.name} has been installed successfully. ${result.id === 'html-supporter' ? 'Template files added to html-templates folder.' : ''}`,
       });
       queryClient.invalidateQueries({ queryKey: ['/api/extensions'] });
+      // Refresh workspace to show new files (for HTML Supporter templates)
+      queryClient.invalidateQueries({ queryKey: ['/api/workspace'] });
     },
     onError: (error: Error) => {
       toast({

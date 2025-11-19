@@ -17,6 +17,7 @@ export default function IDE() {
   const [fileContents, setFileContents] = useState<Record<string, string>>({});
   const [unsavedFiles, setUnsavedFiles] = useState<Set<string>>(new Set());
   const [output, setOutput] = useState<OutputMessage[]>([]);
+  const [isRunning, setIsRunning] = useState(false);
 
   const { data: workspace, isLoading } = useQuery<WorkspaceState>({
     queryKey: ['/api/workspace'],
@@ -129,6 +130,7 @@ export default function IDE() {
     if (!activeTab) return;
     
     setOutput([]);
+    setIsRunning(true);
     
     try {
       const response = await apiRequest('POST', '/api/execute', {
@@ -146,6 +148,14 @@ export default function IDE() {
           description: result.error,
           variant: "destructive",
         });
+      } else if (result.output && result.output.length === 0) {
+        // If there's no output, show a message
+        setOutput([{
+          id: crypto.randomUUID(),
+          type: 'log',
+          message: 'Code executed successfully (no output)',
+          timestamp: Date.now(),
+        }]);
       }
     } catch (error) {
       toast({
@@ -153,8 +163,20 @@ export default function IDE() {
         description: "Failed to execute code",
         variant: "destructive",
       });
+    } finally {
+      setIsRunning(false);
     }
   }, [activeTab, fileContents, toast]);
+
+  const stopCode = useCallback(() => {
+    setIsRunning(false);
+    setOutput(prev => [...prev, {
+      id: crypto.randomUUID(),
+      type: 'warning',
+      message: 'Execution stopped by user',
+      timestamp: Date.now(),
+    }]);
+  }, []);
 
   useEffect(() => {
     const handleKeyDown = (e: KeyboardEvent) => {
@@ -186,9 +208,11 @@ export default function IDE() {
     <div className="h-screen w-full flex flex-col bg-background text-foreground overflow-hidden">
       <Toolbar 
         onRun={runCode}
+        onStop={stopCode}
         onSave={() => activeTab && saveFile(activeTab)}
         canSave={activeTab !== null && unsavedFiles.has(activeTab)}
-        canRun={activeTab !== null}
+        canRun={activeTab !== null && !isRunning}
+        isRunning={isRunning}
         currentWorkspaceName={workspace?.name || "Workspace"}
       />
       
@@ -223,6 +247,8 @@ export default function IDE() {
               <OutputPanel 
                 output={output}
                 onClear={() => setOutput([])}
+                activeFile={activeTab}
+                fileContents={fileContents}
               />
             </ResizablePanel>
           </ResizablePanelGroup>
