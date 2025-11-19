@@ -387,7 +387,8 @@ export class FluxoInterpreter {
     // Use the module's own file path, not the caller's path
     const actualFilePath = moduleFilePath || this.currentFilePath;
     const isModuleFile = actualFilePath.endsWith('.fxm');
-    const hasExportBlock = /export\s*\{[\s\S]*?\}/.test(moduleBody);
+    // More precise regex that won't match import statements
+    const hasExportBlock = /(?:^|\n)\s*export\s*\{[\s\S]*?\}/.test(moduleBody);
     
     if (hasExportBlock && !isModuleFile) {
       throw new Error(
