@@ -84,10 +84,17 @@ export class MemStorage implements IStorage {
 /* 
   IMPORTING MODULES
   -----------------
-  require("modules/myModule")
+  // Import entire module:
+  import("modules/myModule")
   
   // Then use:
   myModule.doSomething()
+  
+  // Or selectively import specific functions/variables:
+  import from "modules/myModule" { doSomething, myVariable }
+  
+  // Then use directly:
+  doSomething()
 */
 
 /* 

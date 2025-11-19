@@ -195,14 +195,14 @@ export function registerFluxoLanguage() {
             kind: monaco.languages.CompletionItemKind.Keyword,
             insertText: 'import from "${1:modulePath}" { ${2:variable} }',
             insertTextRules: monaco.languages.CompletionItemInsertTextRule.InsertAsSnippet,
-            documentation: 'Import specific variables/functions from a module',
+            documentation: 'Selectively import specific variables/functions from a module',
           },
           {
-            label: 'require',
+            label: 'import()',
             kind: monaco.languages.CompletionItemKind.Function,
-            insertText: 'require("${1:path}")',
+            insertText: 'import("${1:modulePath}")',
             insertTextRules: monaco.languages.CompletionItemInsertTextRule.InsertAsSnippet,
-            documentation: 'Import a module',
+            documentation: 'Import an entire module (access via module name)',
           },
           {
             label: 'function',

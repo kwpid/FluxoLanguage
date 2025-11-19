@@ -278,7 +278,7 @@ while (count < 5) {
     modules: {
       id: "modules",
       title: "Modules",
-      keywords: ["module", "export", "require", "import", "organize"],
+      keywords: ["module", "export", "import", "import from", "organize", "selective"],
       content: (
         <div className="space-y-8">
           <section className="space-y-4">
