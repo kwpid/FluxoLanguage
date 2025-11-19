@@ -6,18 +6,27 @@ import { Trash2, Terminal, Eye } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 
+interface Extension {
+  id: string;
+  enabled: boolean;
+}
+
 interface OutputPanelProps {
   output: OutputMessage[];
   onClear: () => void;
   activeFile?: string | null;
   fileContents?: Record<string, string>;
   onSourceClick?: (filePath: string, line?: number, column?: number) => void;
+  extensions?: Extension[];
 }
 
-export function OutputPanel({ output, onClear, activeFile, fileContents = {}, onSourceClick }: OutputPanelProps) {
+export function OutputPanel({ output, onClear, activeFile, fileContents = {}, onSourceClick, extensions = [] }: OutputPanelProps) {
   const [previewHtml, setPreviewHtml] = useState('');
   const [activeTab, setActiveTab] = useState('output');
   const iframeRef = useRef<HTMLIFrameElement>(null);
+  
+  // Check if HTMLSupporter extension is enabled
+  const isHtmlSupporterEnabled = extensions.some(ext => ext.id === 'html-supporter' && ext.enabled);
   
   // Inject Fluxo runtime into HTML
   const injectFluxoRuntime = (html: string): string => {
@@ -43,15 +52,47 @@ export function OutputPanel({ output, onClear, activeFile, fileContents = {}, on
     return html + '\n' + runtimeScript;
   };
   
+  // Wrap Fluxo code in HTML with runtime
+  const wrapFluxoInHtml = (fluxoCode: string, filePath: string): string => {
+    return `<!DOCTYPE html>
+<html>
+<head>
+  <meta charset="UTF-8">
+  <title>Fluxo Preview - ${filePath}</title>
+  <style>
+    body {
+      margin: 0;
+      padding: 16px;
+      font-family: system-ui, -apple-system, sans-serif;
+    }
+  </style>
+</head>
+<body>
+  <script data-fluxo-entry src="/fluxo-runtime.js"></script>
+  <script data-fluxo-code type="text/fluxo">
+${fluxoCode}
+  </script>
+</body>
+</html>`;
+  };
+  
   useEffect(() => {
     // Update preview when active file changes or content changes
-    if (activeFile && (activeFile.endsWith('.html') || activeFile.endsWith('.htm')) && fileContents[activeFile]) {
-      const htmlWithRuntime = injectFluxoRuntime(fileContents[activeFile]);
-      setPreviewHtml(htmlWithRuntime);
-      // Auto-switch to preview tab when HTML file is opened
-      setActiveTab('preview');
+    if (activeFile && fileContents[activeFile]) {
+      const isHtmlFile = activeFile.endsWith('.html') || activeFile.endsWith('.htm');
+      const isFluxoFile = activeFile.endsWith('.fxo') || activeFile.endsWith('.fxm');
+      
+      if (isHtmlFile) {
+        const htmlWithRuntime = injectFluxoRuntime(fileContents[activeFile]);
+        setPreviewHtml(htmlWithRuntime);
+        setActiveTab('preview');
+      } else if (isHtmlSupporterEnabled && isFluxoFile) {
+        const wrappedHtml = wrapFluxoInHtml(fileContents[activeFile], activeFile);
+        setPreviewHtml(wrappedHtml);
+        setActiveTab('preview');
+      }
     }
-  }, [activeFile, fileContents]);
+  }, [activeFile, fileContents, isHtmlSupporterEnabled]);
   
   // Listen for messages from iframe requesting Fluxo modules
   useEffect(() => {
@@ -88,6 +129,8 @@ export function OutputPanel({ output, onClear, activeFile, fileContents = {}, on
   }, [activeFile, fileContents]);
   
   const isHtmlFile = activeFile?.endsWith('.html') || activeFile?.endsWith('.htm');
+  const isFluxoFile = activeFile?.endsWith('.fxo') || activeFile?.endsWith('.fxm');
+  const canPreview = isHtmlFile || (isHtmlSupporterEnabled && isFluxoFile);
   
   const formatTime = (timestamp: number) => {
     const date = new Date(timestamp);

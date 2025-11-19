@@ -721,12 +721,17 @@ export class FluxoInterpreter {
     return result;
   }
 
-  private evaluateArithmetic(expr: string): number {
+  private evaluateArithmetic(expr: string): any {
     try {
       const replaced = expr.replace(/(\w+)/g, (match) => {
         if (this.context.variables.has(match)) {
           const val = this.context.variables.get(match);
-          return typeof val === 'number' ? String(val) : match;
+          if (typeof val === 'number') {
+            return String(val);
+          } else if (typeof val === 'string') {
+            return `"${val}"`;
+          }
+          return match;
         }
         return match;
       });
