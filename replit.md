@@ -17,7 +17,10 @@ Fluxo IDE is a modern, browser-based integrated development environment specific
 - Added search functionality to filter extensions
 - Implemented HTMLSupporter extension for HTML/CSS element creation
 - Extensions can be installed, enabled/disabled, and uninstalled through the UI
-- HTMLSupporter extension automatically creates template files (example.html, styles.css) when installed
+- HTMLSupporter extension automatically creates template files (example.html, styles.css, package.json) in /html-templates folder
+- Extension installation is idempotent - can be safely reinstalled without errors
+- Terminal commands support extension management: `ext install html-supporter`, `ext uninstall html-supporter`, `ext list`
+- Workspace automatically refreshes after extension installation to show new files
 
 **Fluxo Language Extensions:**
 - Extended language syntax to support HTML element creation (createButton, createDiv, createInput, etc.)
