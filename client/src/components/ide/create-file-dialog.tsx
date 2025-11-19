@@ -32,6 +32,13 @@ export function CreateFileDialog({ open, onOpenChange, parentPath, type, onSucce
     }
 
     const finalName = type === 'file' ? `${name}${fileType}` : name;
+    
+    // Auto-generate module template for .fxm files
+    let initialContent = '';
+    if (type === 'file' && fileType === '.fxm') {
+      const moduleName = name.trim();
+      initialContent = `module ${moduleName} {\n    \n}\n`;
+    }
 
     setIsCreating(true);
     try {
@@ -39,7 +46,7 @@ export function CreateFileDialog({ open, onOpenChange, parentPath, type, onSucce
         parentPath,
         name: finalName,
         type,
-        content: type === 'file' ? '' : undefined,
+        content: type === 'file' ? initialContent : undefined,
       });
 
       toast({
