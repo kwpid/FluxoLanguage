@@ -65,11 +65,16 @@ export class FluxoInterpreter {
       };
     };
 
+    const wait = (seconds: number) => {
+      return new Promise(resolve => setTimeout(resolve, seconds * 1000));
+    };
+
     this.context.variables.set('console', {
       log: consoleLog,
     });
     
     this.context.variables.set('selectElement', selectElement);
+    this.context.variables.set('wait', wait);
   }
 
   private addOutput(type: OutputMessage['type'], message: string, line?: number, column?: number) {

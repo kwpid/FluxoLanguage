@@ -24,6 +24,13 @@
   const originalError = console.error;
   const originalWarn = console.warn;
 
+  // Wait function (like Lua's wait)
+  window.wait = function(seconds) {
+    return new Promise(function(resolve) {
+      setTimeout(resolve, seconds * 1000);
+    });
+  };
+
   // Helper function to get or create an element
   function getElement(selector) {
     if (typeof selector === 'object' && selector.element) {
@@ -351,7 +358,7 @@
       const moduleFunction = new Function(
         'require', 'module', 'exports', 'console', 'select', 
         'createButton', 'createDiv', 'createInput', 'createText', 
-        'createHeading', 'createParagraph',
+        'createHeading', 'createParagraph', 'wait',
         jsCode
       );
       
@@ -359,7 +366,7 @@
         require, module, moduleExports, console, 
         window.select, window.createButton, window.createDiv, 
         window.createInput, window.createText, window.createHeading, 
-        window.createParagraph
+        window.createParagraph, window.wait
       );
       
       // Store in registry
@@ -420,13 +427,13 @@
       const jsCode = transpileFluxoToJS(code);
       const func = new Function(
         'console', 'select', 'createButton', 'createDiv', 'createInput', 
-        'createText', 'createHeading', 'createParagraph', 
+        'createText', 'createHeading', 'createParagraph', 'wait',
         jsCode
       );
       func(
         console, window.select, window.createButton, window.createDiv, 
         window.createInput, window.createText, window.createHeading, 
-        window.createParagraph
+        window.createParagraph, window.wait
       );
     } catch (error) {
       console.error('Fluxo execution error:', error);
