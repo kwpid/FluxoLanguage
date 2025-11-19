@@ -1,0 +1,15 @@
+// Test wait() callback syntax
+console.log("Starting countdown...")
+
+wait(1) {
+  console.log("3...")
+  wait(1) {
+    console.log("2...")
+    wait(1) {
+      console.log("1...")
+      wait(1) {
+        console.log("Go!")
+      }
+    }
+  }
+}

@@ -295,7 +295,7 @@
     
     // Start loading
     const promise = new Promise(function(resolve, reject) {
-      function handleModuleResponse(event) {
+      async function handleModuleResponse(event) {
         // Parent sends back with normalized path
         if (event.data && 
             event.data.type === 'fluxo-module' && 
@@ -303,7 +303,7 @@
           window.removeEventListener('message', handleModuleResponse);
           
           try {
-            const moduleExports = executeModule(event.data.code, resolvedPath);
+            const moduleExports = await executeModule(event.data.code, resolvedPath);
             resolve(moduleExports);
           } catch (error) {
             console.error('Failed to execute module', resolvedPath, error);
