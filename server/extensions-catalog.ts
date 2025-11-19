@@ -9,8 +9,22 @@ export const extensionsCatalog: Extension[] = [
     author: "Fluxo Team",
     category: "language",
     enabled: false,
+    isInstalled: false,
     installedAt: Date.now(),
   },
+  // Add your new extensions here following the same structure
+  // Example:
+  // {
+  //   id: "debug-helper",
+  //   name: "Debug Helper",
+  //   version: "1.0.0",
+  //   description: "Provides enhanced debugging tools and console logging utilities for Fluxo development.",
+  //   author: "Fluxo Team",
+  //   category: "utility",
+  //   enabled: false,
+  //   isInstalled: false,
+  //   installedAt: Date.now(),
+  // },
 ];
 
 export function getAvailableExtensions(): Extension[] {
