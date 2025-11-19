@@ -6,68 +6,44 @@ Fluxo IDE is a modern, browser-based integrated development environment specific
 
 ## Recent Changes (November 19, 2025)
 
-**Workspace Initialization:**
-- Cleaned up initial workspace to contain only README.fxo file (removed example scripts)
-- README.fxo provides clear getting started guide for Fluxo IDE features
+**Latest Update - HTML/Fluxo Manifest Architecture:**
+- **BREAKING CHANGE**: HTML files can no longer embed Fluxo code inline
+- HTML files now import external Fluxo modules using `<script type="module" data-fluxo-entry="filename.fxm">`
+- This separation improves code organization and maintainability
+- HTML path resolution correctly handles both relative and absolute module paths
+- Interpreter properly resolves relative paths by prepending HTML file's directory
 
-**HTML File Support:**
-- Implemented support for `<script type="text/fluxo">` tags in HTML files
-- Flexible regex parsing allows type attribute in any position among other attributes
-- Multiple Fluxo script blocks can be embedded in a single HTML file
-- Added `selectElement(selector)` function for DOM manipulation from Fluxo code
-- HTML files automatically extract and execute embedded Fluxo scripts
-- Full HTML syntax highlighting and support for .html, .css, .js, and .json files
+**Extension System Redesign:**
+- Two-step extension lifecycle: Download from UI, then install via terminal
+- Extensions must be downloaded from Extensions panel before installation
+- Terminal command `fluxo install <extension-id>` installs downloaded extensions
+- Extension state tracking: available → downloaded → installed
+- Storage layer validates download state before allowing installation
+- UI shows clear distinction between downloaded and installed extensions
 
-**Monaco Editor Enhancements:**
-- Added auto-closing brackets, quotes, and braces for improved coding efficiency
-- Enabled bracket pair colorization and matching for better code readability
-- Implemented occurrence highlighting to show all instances of selected text
-- Added format-on-type and format-on-paste capabilities for automatic code formatting
-- Implemented workspace-wide variable tracking and suggestions across all files
-- **Instant local autocomplete**: Variables and functions defined in the current file appear immediately as you type
-- **Cross-file suggestions**: Variables and functions from other workspace files are also suggested
+**Module Folder Import Feature:**
+- New syntax: `module folder "/path" as alias` imports all .fxo and .fxm files from a folder
+- Access imported modules via alias: `alias.moduleName.functionName()`
+- Only files with module definitions are included in folder imports
+- Modules execute in the current interpreter context for proper variable scope
 
-**Output Panel Improvements:**
-- **Source tracking**: Every output message now includes the file path that generated it
-- **Click-to-source**: Click any output message to instantly jump to the file that produced it
-- Output messages show the originating filename for easy debugging
-- Hover tooltips indicate which file and line number generated each message
+**File Explorer Enhancements:**
+- Different icons for file types: FileCode icon for .fxm (module files), File icon for .fxo (script files)
+- Visual distinction helps users identify module files vs regular scripts
 
-**Extensions System:**
-- Created Extensions UI with Sheet component featuring Installed and Browse tabs
-- Added search functionality to filter extensions
-- Implemented HTMLSupporter extension for HTML/CSS element creation
-- Extensions can be installed, enabled/disabled, and uninstalled through the UI
-- HTMLSupporter extension automatically creates template files (example.html, styles.css, package.json) in /html-templates folder
-- Extension installation is idempotent - can be safely reinstalled without errors
-- Terminal commands support extension management: `ext install html-supporter`, `ext uninstall html-supporter`, `ext list`
-- Workspace automatically refreshes after extension installation to show new files
+**Documentation Updates:**
+- Updated HTML Support section to explain new manifest-based approach
+- Added examples of HTML importing Fluxo modules
+- Clarified two-step extension installation workflow
+- Added documentation for module folder import syntax
 
-**Fluxo Language Extensions:**
-- Extended language syntax to support HTML element creation (createButton, createDiv, createInput, etc.)
-- Added event handler support (onClick, onChange, onHover, onFocus, onBlur, onSubmit)
-- Implemented autocomplete suggestions for HTML elements and event handlers
-- All HTML features available when HTMLSupporter extension is installed
-
-**Documentation Improvements:**
-- Completely reorganized documentation with tabbed sections:
-  - Getting Started
-  - Language Basics (Variables, Functions, Operators)
-  - Control Flow (If-Else, Loops)
-  - Modules
-  - HTML Support (Elements, Events, Examples)
-  - Best Practices
-- Added search functionality with keyword filtering across all documentation sections
-- Comprehensive examples for HTML element creation and event handling
-- Added "Copy Raw" button to copy complete documentation as plain text
-
-**Code Execution & Preview:**
-- Implemented Run button functionality to execute Fluxo code and display output
-- Added Stop button that appears during code execution
-- Created HTML Preview pane with tabs to switch between Output and Preview modes
-- Preview tab displays HTML files in a sandboxed iframe for security
-- Preview automatically updates when HTML file content changes
-- Output panel shows execution results with timestamped, color-coded messages
+**Previous Features:**
+- Monaco Editor with auto-closing brackets, bracket colorization, and occurrence highlighting
+- Workspace-wide variable tracking and cross-file autocomplete suggestions
+- Output panel with source tracking and click-to-jump functionality
+- HTML Preview pane for viewing rendered HTML files
+- Terminal with command support for extension management
+- Comprehensive documentation with search and filtering
 
 ## User Preferences
 
