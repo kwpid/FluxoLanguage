@@ -136,18 +136,47 @@ Free tier includes:
 
 **Check the logs** in the Render dashboard. Common issues:
 
-1. **Missing dependencies**:
+1. **Node.js Version Mismatch**:
+   - Render may use a different Node version than expected
+   - Add a `.node-version` file or `.nvmrc` file to specify Node 20.x
+   - Or set environment variable: `NODE_VERSION=20`
+
+2. **Missing dependencies**:
    ```bash
    # Make sure all dependencies are in package.json
    npm install <missing-package> --save
+   # If build still fails, try clearing cache in Render:
+   # Dashboard > Settings > Clear Build Cache & Deploy
    ```
 
-2. **TypeScript errors**:
-   - Fix type errors locally
+3. **TypeScript errors**:
+   - Fix type errors locally first
    - Test build with: `npm run build`
+   - Common issues:
+     - Missing type definitions for packages
+     - Outdated TypeScript version
+     - Type errors in server/fluxo-interpreter.ts or routes
 
-3. **Port configuration**:
+4. **Vite build issues**:
+   - Ensure `vite.config.ts` is correctly configured
+   - Check that `client/` directory exists with proper structure
+   - Verify `dist/public` directory is created during build
+   
+5. **esbuild errors**:
+   - The build uses esbuild to compile the server
+   - Check `server/index.ts` has no syntax errors
+   - Ensure all imports use `.js` extension for ES modules
+
+6. **Port configuration**:
    - Ensure server uses `process.env.PORT || 5000`
+   - Check `server/index.ts` for correct port binding
+
+7. **Build command fix** (if default doesn't work):
+   Try updating build command to:
+   ```bash
+   npm ci && npm run build
+   ```
+   (`npm ci` is more reliable than `npm install` in CI/CD)
 
 ### App Crashes on Start
 

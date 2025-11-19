@@ -244,6 +244,57 @@ console.log("Product:", product) // Output: 28
 console.log("Squared:", squared) // Output: 81`}
               </pre>
             </div>
+
+            <h3 className="text-xl font-semibold mt-6">Exporting Variables</h3>
+            <p className="text-muted-foreground">
+              Module files can export specific variables using the <code className="bg-muted px-2 py-1 rounded-md text-sm">export &#123; &#125;</code> syntax.
+            </p>
+            <div className="bg-card border border-border rounded-md p-4">
+              <pre className="font-mono text-sm text-foreground">
+{`// File: config/settings.fxm
+module settings {
+  local appName = "My Fluxo App"
+  local version = "1.0.0"
+  local apiUrl = "https://api.example.com"
+  
+  // Export specific variables
+  export {
+    appName,
+    version
+  }
+  
+  // apiUrl remains private to this module
+}`}
+              </pre>
+            </div>
+
+            <h3 className="text-xl font-semibold mt-6">Selective Imports</h3>
+            <p className="text-muted-foreground">
+              Import only specific variables or functions from a module using the <code className="bg-muted px-2 py-1 rounded-md text-sm">import from</code> syntax.
+            </p>
+            <div className="bg-card border border-border rounded-md p-4">
+              <pre className="font-mono text-sm text-foreground">
+{`// Import only specific items from a module
+import from "config/settings" { appName, version }
+import from "modules/mathUtils" { add, multiply }
+
+// Use imported items directly (no module prefix needed)
+console.log(appName)      // Output: My Fluxo App
+console.log(version)      // Output: 1.0.0
+
+local total = add(10, 20)
+console.log("Total:", total)  // Output: 30`}
+              </pre>
+            </div>
+
+            <div className="bg-primary/10 border border-primary/20 rounded-md p-4 mt-6">
+              <p className="text-sm font-semibold mb-2">Module File Rules</p>
+              <ul className="text-sm text-muted-foreground space-y-1 list-disc list-inside">
+                <li>Module files (.fxm) can use both <code className="bg-muted px-1 py-0.5 rounded-md">export &#123; &#125;</code> and <code className="bg-muted px-1 py-0.5 rounded-md">import from</code></li>
+                <li>Regular scripts (.fxo) can use <code className="bg-muted px-1 py-0.5 rounded-md">import from</code> but NOT <code className="bg-muted px-1 py-0.5 rounded-md">export &#123; &#125;</code></li>
+                <li><code className="bg-muted px-1 py-0.5 rounded-md">export function</code> works in both .fxm and .fxo files</li>
+              </ul>
+            </div>
           </section>
         </div>
       ),

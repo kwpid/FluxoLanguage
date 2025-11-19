@@ -6,6 +6,15 @@ Fluxo IDE is a modern, browser-based integrated development environment specific
 
 ## Recent Changes (November 19, 2025)
 
+**Version 1.1.0 - Enhanced Module Import/Export System:**
+- **NEW**: Module files (.fxm) can now export specific variables using `export { var1, var2 }` syntax
+- **NEW**: Selective imports with `import from "fileName" { var1, var2 }` syntax for both .fxo and .fxm files
+- Module files (.fxm) can use both `export {}` and `import from`
+- Regular scripts (.fxo) can use `import from` to selectively import variables/functions
+- `export function` continues to work as before for backward compatibility
+- Imported variables/functions are available directly without module prefix
+- Enhanced autocomplete in Monaco editor for new import/export syntax
+
 **Latest Update - HTML/Fluxo Manifest Architecture:**
 - **BREAKING CHANGE**: HTML files can no longer embed Fluxo code inline
 - HTML files now import external Fluxo modules using `<script type="module" data-fluxo-entry="filename.fxm">`

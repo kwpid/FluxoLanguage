@@ -41,7 +41,7 @@ export function registerFluxoLanguage() {
     // Define syntax highlighting rules
     monaco.languages.setMonarchTokensProvider('fluxo', {
       keywords: [
-        'module', 'export', 'require', 'function', 'return', 'if', 'else',
+        'module', 'export', 'import', 'from', 'require', 'function', 'return', 'if', 'else',
         'while', 'for', 'break', 'continue', 'local',
         'true', 'false', 'null', 'undefined'
       ],
@@ -177,11 +177,25 @@ export function registerFluxoLanguage() {
             documentation: 'Define a module',
           },
           {
-            label: 'export',
+            label: 'export function',
             kind: monaco.languages.CompletionItemKind.Keyword,
             insertText: 'export function ${1:functionName}(${2:params}) {\n\t$0\n}',
             insertTextRules: monaco.languages.CompletionItemInsertTextRule.InsertAsSnippet,
             documentation: 'Export a function from a module',
+          },
+          {
+            label: 'export {}',
+            kind: monaco.languages.CompletionItemKind.Keyword,
+            insertText: 'export {\n\t${1:variableName}\n}',
+            insertTextRules: monaco.languages.CompletionItemInsertTextRule.InsertAsSnippet,
+            documentation: 'Export specific variables from a module',
+          },
+          {
+            label: 'import from',
+            kind: monaco.languages.CompletionItemKind.Keyword,
+            insertText: 'import from "${1:modulePath}" { ${2:variable} }',
+            insertTextRules: monaco.languages.CompletionItemInsertTextRule.InsertAsSnippet,
+            documentation: 'Import specific variables/functions from a module',
           },
           {
             label: 'require',

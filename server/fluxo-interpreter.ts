@@ -19,7 +19,8 @@ interface FluxoFunction {
 
 interface FluxoModule {
   name: string;
-  exports: Map<string, FluxoFunction>;
+  exports: Map<string, FluxoFunction | any>;  // Can export functions or variables
+  variables: Map<string, any>;  // Track module-level variables
 }
 
 export class FluxoInterpreter {
@@ -149,7 +150,9 @@ export class FluxoInterpreter {
       pos = this.skipWhitespace(code, pos);
       if (pos >= code.length) break;
 
-      if (code.substring(pos).startsWith('require(')) {
+      if (code.substring(pos).startsWith('import from ')) {
+        pos = await this.parseImportFrom(code, pos);
+      } else if (code.substring(pos).startsWith('require(')) {
         pos = await this.parseRequire(code, pos);
       } else if (code.substring(pos).startsWith('module folder ')) {
         pos = await this.parseModuleFolder(code, pos);
@@ -204,6 +207,60 @@ export class FluxoInterpreter {
     return pos;
   }
 
+  private async parseImportFrom(code: string, pos: number): Promise<number> {
+    // NEW: Handle import from "fileName" { var1, var2 } syntax
+    const match = code.substring(pos).match(/import\s+from\s+"([^"]+)"\s*\{([^}]+)\}/);
+    if (match) {
+      const modulePath = match[1];
+      const importList = match[2].split(',').map(name => name.trim()).filter(n => n);
+      
+      const fullPath = modulePath.startsWith('/') ? modulePath : `/${modulePath}`;
+      const moduleFilePath = fullPath.endsWith('.fxm') ? fullPath : `${fullPath}.fxm`;
+
+      const moduleContent = await storage.getFileContent(moduleFilePath);
+      if (moduleContent) {
+        // Load the module if not already loaded
+        const moduleMatch = moduleContent.match(/module\s+(\w+)\s*\{/);
+        if (moduleMatch) {
+          const moduleName = moduleMatch[1];
+          
+          // Check if module is already loaded
+          if (!this.context.modules.has(moduleName)) {
+            await this.loadModule(moduleContent, moduleFilePath);
+          }
+          
+          const loadedModule = this.context.modules.get(moduleName);
+          if (loadedModule) {
+            // Import only the specified variables/functions
+            importList.forEach(name => {
+              if (loadedModule.exports.has(name)) {
+                const exported = loadedModule.exports.get(name);
+                if (typeof exported === 'object' && exported.params !== undefined) {
+                  // It's a function - create wrapper
+                  this.context.variables.set(name, (...args: any[]) => {
+                    return this.executeFunction(exported, args);
+                  });
+                } else {
+                  // It's a variable
+                  this.context.variables.set(name, exported);
+                }
+              } else {
+                this.addOutput('warning', `Export '${name}' not found in module '${moduleName}'`);
+              }
+            });
+          }
+        } else {
+          throw new Error(`No module definition found in ${modulePath}`);
+        }
+      } else {
+        throw new Error(`Module not found: ${modulePath}`);
+      }
+
+      return pos + match[0].length;
+    }
+    return pos + 1;
+  }
+
   private async parseRequire(code: string, pos: number): Promise<number> {
     const match = code.substring(pos).match(/require\("([^"]+)"\)/);
     if (match) {
@@ -213,7 +270,7 @@ export class FluxoInterpreter {
 
       const moduleContent = await storage.getFileContent(moduleFilePath);
       if (moduleContent) {
-        await this.loadModule(moduleContent);
+        await this.loadModule(moduleContent, moduleFilePath);
       } else {
         throw new Error(`Module not found: ${modulePath}`);
       }
@@ -250,7 +307,7 @@ export class FluxoInterpreter {
                 const moduleMatch = content.match(/module\s+(\w+)\s*\{/);
                 if (moduleMatch) {
                   const moduleName = moduleMatch[1];
-                  await this.loadModule(content);
+                  await this.loadModule(content, file.path);
                   
                   const loadedModule = this.context.modules.get(moduleName);
                   if (loadedModule) {
@@ -301,12 +358,12 @@ export class FluxoInterpreter {
     const endPos = this.findMatchingBrace(code, bracePos);
     const moduleBody = code.substring(bracePos + 1, endPos - 1);
 
-    await this.loadModule(`module ${moduleName} {${moduleBody}}`);
+    await this.loadModule(`module ${moduleName} {${moduleBody}}`, this.currentFilePath);
 
     return endPos;
   }
 
-  private async loadModule(moduleCode: string) {
+  private async loadModule(moduleCode: string, moduleFilePath?: string) {
     const match = moduleCode.match(/module\s+(\w+)\s*\{([\s\S]*)\}/);
     if (!match) return;
 
@@ -316,8 +373,29 @@ export class FluxoInterpreter {
     const moduleObj: FluxoModule = {
       name: moduleName,
       exports: new Map(),
+      variables: new Map(),
     };
 
+    // Check if this file is allowed to use export {} syntax
+    // Use the module's own file path, not the caller's path
+    const actualFilePath = moduleFilePath || this.currentFilePath;
+    const isModuleFile = actualFilePath.endsWith('.fxm');
+    const hasExportBlock = /export\s*\{[\s\S]*?\}/.test(moduleBody);
+    
+    if (hasExportBlock && !isModuleFile) {
+      throw new Error(
+        `Syntax Error: export { } can only be used in module files (.fxm).\n` +
+        `File: ${actualFilePath}\n` +
+        `Hint: Rename this file to use the .fxm extension, or use 'export function' instead.`
+      );
+    }
+
+    // First pass: Execute the module body to collect variables and functions
+    // We need to execute variables before export block
+    const cleanBody = moduleBody.replace(/export\s*\{[\s\S]*?\}/g, ''); // Remove export block temporarily
+    await this.executeModuleBody(cleanBody, moduleObj);
+
+    // Second pass: Parse exports
     let pos = 0;
     while (pos < moduleBody.length) {
       pos = this.skipWhitespace(moduleBody, pos);
@@ -347,6 +425,22 @@ export class FluxoInterpreter {
         } else {
           pos++;
         }
+      } else if (moduleBody.substring(pos).startsWith('export {')) {
+        // NEW: Handle export { var1, var2 } syntax
+        const exportMatch = moduleBody.substring(pos).match(/export\s*\{([^}]+)\}/);
+        if (exportMatch) {
+          const exportList = exportMatch[1].split(',').map(name => name.trim()).filter(n => n);
+          exportList.forEach(varName => {
+            if (moduleObj.variables.has(varName)) {
+              moduleObj.exports.set(varName, moduleObj.variables.get(varName));
+            } else {
+              this.addOutput('warning', `Variable '${varName}' not found in module '${moduleName}' for export`);
+            }
+          });
+          pos += exportMatch[0].length;
+        } else {
+          pos++;
+        }
       } else {
         pos++;
       }
@@ -355,16 +449,72 @@ export class FluxoInterpreter {
     this.context.modules.set(moduleName, moduleObj);
 
     const moduleProxy: any = {};
-    moduleObj.exports.forEach((func, funcName) => {
-      moduleProxy[funcName] = (...args: any[]) => {
-        return this.executeFunction(func, args);
-      };
+    moduleObj.exports.forEach((item, name) => {
+      if (typeof item === 'object' && item.params !== undefined) {
+        // It's a function
+        moduleProxy[name] = (...args: any[]) => {
+          return this.executeFunction(item, args);
+        };
+      } else {
+        // It's a variable
+        moduleProxy[name] = item;
+      }
     });
 
     this.context.variables.set(moduleName, moduleProxy);
     
     if (typeof globalThis !== 'undefined') {
       (globalThis as any)[moduleName] = moduleProxy;
+    }
+  }
+
+  private async executeModuleBody(body: string, moduleObj: FluxoModule) {
+    // Execute the module body to collect variables
+    // Similar to parseAndExecute but stores in module context
+    let pos = 0;
+    while (pos < body.length) {
+      pos = this.skipWhitespace(body, pos);
+      if (pos >= body.length) break;
+
+      if (body.substring(pos).startsWith('local ')) {
+        const end = this.findStatementEnd(body, pos);
+        const statement = body.substring(pos, end);
+        const match = statement.match(/local\s+(\w+)\s*=\s*(.+)/);
+
+        if (match) {
+          const varName = match[1];
+          const value = this.evaluateExpression(match[2]);
+          moduleObj.variables.set(varName, value);
+          this.context.variables.set(varName, value); // Also set in context for evaluation
+        }
+        pos = end;
+      } else if (body.substring(pos).startsWith('function ')) {
+        const match = body.substring(pos).match(/function\s+(\w+)\s*\(([^)]*)\)\s*\{/);
+        if (match) {
+          const funcName = match[1];
+          const paramsStr = match[2].trim();
+          let params: string[];
+          let hasRestParam = false;
+
+          if (paramsStr.includes('...')) {
+            hasRestParam = true;
+            params = [paramsStr.replace('...', '').trim()];
+          } else {
+            params = paramsStr.split(',').map(p => p.trim()).filter(p => p);
+          }
+
+          const bracePos = pos + match[0].length - 1;
+          const endPos = this.findMatchingBrace(body, bracePos);
+          const funcBody = body.substring(bracePos + 1, endPos - 1);
+
+          moduleObj.variables.set(funcName, { params, body: funcBody, hasRestParam });
+          pos = endPos;
+        } else {
+          pos++;
+        }
+      } else {
+        pos++;
+      }
     }
   }
 
