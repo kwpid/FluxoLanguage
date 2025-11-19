@@ -3,6 +3,7 @@ import { Button } from "@/components/ui/button";
 import { Separator } from "@/components/ui/separator";
 import { Link } from "wouter";
 import { WorkspaceSelector } from "./workspace-selector";
+import { ExtensionsSheet } from "./extensions-sheet";
 
 interface ToolbarProps {
   onRun: () => void;
@@ -54,6 +55,8 @@ export function Toolbar({ onRun, onSave, canSave, canRun, currentWorkspaceName }
         </Button>
 
         <Separator orientation="vertical" className="h-6" />
+
+        <ExtensionsSheet />
 
         <Link href="/docs">
           <Button

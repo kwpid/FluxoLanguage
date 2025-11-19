@@ -123,12 +123,18 @@ export function EditorPanel({
               smoothScrolling: true,
               padding: { top: 16, bottom: 16 },
               bracketPairColorization: { enabled: true },
+              matchBrackets: 'always',
               autoClosingBrackets: 'always',
               autoClosingQuotes: 'always',
               autoClosingOvertype: 'always',
+              autoClosingDelete: 'always',
               autoSurround: 'languageDefined',
+              occurrencesHighlight: 'singleFile',
+              selectionHighlight: true,
               guides: {
                 bracketPairs: true,
+                bracketPairsHorizontal: true,
+                highlightActiveBracketPair: true,
                 indentation: true,
               },
               suggest: {

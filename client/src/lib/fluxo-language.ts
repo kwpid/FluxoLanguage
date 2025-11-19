@@ -13,6 +13,17 @@ export function registerFluxoLanguage() {
         'true', 'false', 'null', 'undefined'
       ],
 
+      htmlElements: [
+        'createButton', 'createDiv', 'createInput', 'createText', 'createImage',
+        'createContainer', 'createForm', 'createHeading', 'createParagraph',
+        'createLink', 'createList', 'createListItem', 'createSpan'
+      ],
+
+      eventHandlers: [
+        'onClick', 'onHover', 'onChange', 'onSubmit', 'onFocus', 'onBlur',
+        'onKeyPress', 'onKeyDown', 'onKeyUp', 'onMouseEnter', 'onMouseLeave'
+      ],
+
       operators: [
         '=', '>', '<', '!', ':', '+', '-', '*', '/', '%',
         '==', '!=', '<=', '>=', '&&', '||', '++', '--'
@@ -26,6 +37,8 @@ export function registerFluxoLanguage() {
           [/[a-zA-Z_]\w*/, {
             cases: {
               '@keywords': 'keyword',
+              '@htmlElements': 'type',
+              '@eventHandlers': 'function',
               '@default': 'identifier'
             }
           }],
@@ -115,6 +128,48 @@ export function registerFluxoLanguage() {
             insertText: 'function ${1:name}(${2:params}) {\n\t$0\n}',
             insertTextRules: monaco.languages.CompletionItemInsertTextRule.InsertAsSnippet,
             documentation: 'Define a function',
+          },
+          {
+            label: 'createButton',
+            kind: monaco.languages.CompletionItemKind.Function,
+            insertText: 'createButton({ text: "${1:Button Text}" })',
+            insertTextRules: monaco.languages.CompletionItemInsertTextRule.InsertAsSnippet,
+            documentation: 'Create an interactive button element (requires HTMLSupporter extension)',
+          },
+          {
+            label: 'createDiv',
+            kind: monaco.languages.CompletionItemKind.Function,
+            insertText: 'createDiv({ class: "${1:container}" })',
+            insertTextRules: monaco.languages.CompletionItemInsertTextRule.InsertAsSnippet,
+            documentation: 'Create a container div element (requires HTMLSupporter extension)',
+          },
+          {
+            label: 'createInput',
+            kind: monaco.languages.CompletionItemKind.Function,
+            insertText: 'createInput({ type: "${1:text}", placeholder: "${2:Enter text}" })',
+            insertTextRules: monaco.languages.CompletionItemInsertTextRule.InsertAsSnippet,
+            documentation: 'Create an input field (requires HTMLSupporter extension)',
+          },
+          {
+            label: 'onClick',
+            kind: monaco.languages.CompletionItemKind.Method,
+            insertText: 'onClick(function() {\n\t$0\n})',
+            insertTextRules: monaco.languages.CompletionItemInsertTextRule.InsertAsSnippet,
+            documentation: 'Add a click event handler to an element (requires HTMLSupporter extension)',
+          },
+          {
+            label: 'onChange',
+            kind: monaco.languages.CompletionItemKind.Method,
+            insertText: 'onChange(function(value) {\n\t$0\n})',
+            insertTextRules: monaco.languages.CompletionItemInsertTextRule.InsertAsSnippet,
+            documentation: 'Add a change event handler to an element (requires HTMLSupporter extension)',
+          },
+          {
+            label: 'onHover',
+            kind: monaco.languages.CompletionItemKind.Method,
+            insertText: 'onHover(function() {\n\t$0\n})',
+            insertTextRules: monaco.languages.CompletionItemInsertTextRule.InsertAsSnippet,
+            documentation: 'Add a hover event handler to an element (requires HTMLSupporter extension)',
           },
         ];
 
