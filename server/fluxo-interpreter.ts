@@ -71,12 +71,15 @@ export class FluxoInterpreter {
     this.context.variables.set('selectElement', selectElement);
   }
 
-  private addOutput(type: OutputMessage['type'], message: string) {
+  private addOutput(type: OutputMessage['type'], message: string, line?: number, column?: number) {
     this.context.output.push({
       id: randomUUID(),
       type,
       message,
       timestamp: Date.now(),
+      filePath: this.currentFilePath,
+      line,
+      column,
     });
   }
 

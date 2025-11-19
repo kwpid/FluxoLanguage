@@ -39,6 +39,18 @@ export function EditorPanel({
     if (path.endsWith('.fxo') || path.endsWith('.fxm')) {
       return 'fluxo';
     }
+    if (path.endsWith('.html') || path.endsWith('.htm')) {
+      return 'html';
+    }
+    if (path.endsWith('.css')) {
+      return 'css';
+    }
+    if (path.endsWith('.js') || path.endsWith('.mjs')) {
+      return 'javascript';
+    }
+    if (path.endsWith('.json')) {
+      return 'json';
+    }
     return 'plaintext';
   };
 

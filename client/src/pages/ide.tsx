@@ -178,6 +178,14 @@ export default function IDE() {
     }]);
   }, []);
 
+  const handleSourceClick = useCallback((filePath: string, line?: number, column?: number) => {
+    openFile(filePath);
+    toast({
+      title: "Opened file",
+      description: `${filePath.split('/').pop()}${line ? ` at line ${line}` : ''}`,
+    });
+  }, [openFile, toast]);
+
   useEffect(() => {
     const handleKeyDown = (e: KeyboardEvent) => {
       if ((e.metaKey || e.ctrlKey) && e.key === 's') {
@@ -249,6 +257,7 @@ export default function IDE() {
                 onClear={() => setOutput([])}
                 activeFile={activeTab}
                 fileContents={fileContents}
+                onSourceClick={handleSourceClick}
               />
             </ResizablePanel>
           </ResizablePanelGroup>

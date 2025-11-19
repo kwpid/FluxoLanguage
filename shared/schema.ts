@@ -60,6 +60,9 @@ export const outputMessageSchema = z.object({
   type: z.enum(['log', 'error', 'warning', 'success']),
   message: z.string(),
   timestamp: z.number(),
+  filePath: z.string().optional(),
+  line: z.number().optional(),
+  column: z.number().optional(),
 });
 
 export type OutputMessage = z.infer<typeof outputMessageSchema>;

@@ -11,9 +11,10 @@ interface OutputPanelProps {
   onClear: () => void;
   activeFile?: string | null;
   fileContents?: Record<string, string>;
+  onSourceClick?: (filePath: string, line?: number, column?: number) => void;
 }
 
-export function OutputPanel({ output, onClear, activeFile, fileContents = {} }: OutputPanelProps) {
+export function OutputPanel({ output, onClear, activeFile, fileContents = {}, onSourceClick }: OutputPanelProps) {
   const [previewHtml, setPreviewHtml] = useState('');
   const [activeTab, setActiveTab] = useState('output');
   
@@ -113,16 +114,29 @@ export function OutputPanel({ output, onClear, activeFile, fileContents = {} }: 
             ) : (
               <div className="p-3 font-mono text-[13px] space-y-1">
                 {output.map((msg) => (
-                  <div key={msg.id} className="flex gap-2" data-testid={`output-message-${msg.id}`}>
+                  <div 
+                    key={msg.id} 
+                    className={`flex gap-2 ${msg.filePath && onSourceClick ? 'cursor-pointer hover-elevate rounded-md px-2 -mx-2 py-1 -my-1' : ''}`}
+                    data-testid={`output-message-${msg.id}`}
+                    onClick={() => msg.filePath && onSourceClick?.(msg.filePath, msg.line, msg.column)}
+                    title={msg.filePath ? `Click to open ${msg.filePath}${msg.line ? `:${msg.line}` : ''}` : undefined}
+                  >
                     <span className="text-muted-foreground flex-shrink-0 select-none">
                       {formatTime(msg.timestamp)}
                     </span>
                     <span className={`flex-shrink-0 ${getMessageColor(msg.type)}`}>
                       {getMessageIcon(msg.type)}
                     </span>
-                    <span className={getMessageColor(msg.type)}>
-                      {msg.message}
-                    </span>
+                    <div className="flex-1 flex gap-2">
+                      <span className={getMessageColor(msg.type)}>
+                        {msg.message}
+                      </span>
+                      {msg.filePath && (
+                        <span className="text-muted-foreground text-xs ml-auto flex-shrink-0">
+                          {msg.filePath.split('/').pop()}
+                        </span>
+                      )}
+                    </div>
                   </div>
                 ))}
               </div>

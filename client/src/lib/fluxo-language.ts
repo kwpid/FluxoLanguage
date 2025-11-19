@@ -144,6 +144,30 @@ export function registerFluxoLanguage() {
           console.error('Failed to fetch workspace symbols:', error);
         }
 
+        // Parse current model for local variables and functions
+        const currentCode = model.getValue();
+        const localVariables = new Set<string>();
+        const localFunctions = new Set<string>();
+        
+        // Extract function declarations: function name(...)
+        const functionRegex = /function\s+([a-zA-Z_]\w*)\s*\(/g;
+        let match;
+        while ((match = functionRegex.exec(currentCode)) !== null) {
+          localFunctions.add(match[1]);
+        }
+        
+        // Extract local variable declarations: local name = ...
+        const variableRegex = /local\s+([a-zA-Z_]\w*)\s*=/g;
+        while ((match = variableRegex.exec(currentCode)) !== null) {
+          localVariables.add(match[1]);
+        }
+        
+        // Also extract simple variable assignments: name = ... (but not inside strings)
+        const assignmentRegex = /(?:^|\n)\s*([a-zA-Z_]\w*)\s*=/g;
+        while ((match = assignmentRegex.exec(currentCode)) !== null) {
+          localVariables.add(match[1]);
+        }
+
         const suggestions = [
           {
             label: 'module',
@@ -224,24 +248,52 @@ export function registerFluxoLanguage() {
           },
         ];
 
-        workspaceSymbols.variables.forEach(varName => {
-          suggestions.push({
-            label: varName,
-            kind: monaco.languages.CompletionItemKind.Variable,
-            insertText: varName,
-            insertTextRules: monaco.languages.CompletionItemInsertTextRule.None,
-            documentation: `Variable from workspace: ${varName}`,
-          } as any);
-        });
-
-        workspaceSymbols.functions.forEach(funcName => {
+        // Add local functions (current file)
+        localFunctions.forEach(funcName => {
           suggestions.push({
             label: funcName,
             kind: monaco.languages.CompletionItemKind.Function,
             insertText: `${funcName}($0)`,
             insertTextRules: monaco.languages.CompletionItemInsertTextRule.InsertAsSnippet,
-            documentation: `Function from workspace: ${funcName}`,
+            documentation: `Local function: ${funcName}`,
           } as any);
+        });
+
+        // Add local variables (current file)
+        localVariables.forEach(varName => {
+          suggestions.push({
+            label: varName,
+            kind: monaco.languages.CompletionItemKind.Variable,
+            insertText: varName,
+            insertTextRules: monaco.languages.CompletionItemInsertTextRule.None,
+            documentation: `Local variable: ${varName}`,
+          } as any);
+        });
+
+        // Add workspace variables (other files)
+        workspaceSymbols.variables.forEach(varName => {
+          if (!localVariables.has(varName)) {
+            suggestions.push({
+              label: varName,
+              kind: monaco.languages.CompletionItemKind.Variable,
+              insertText: varName,
+              insertTextRules: monaco.languages.CompletionItemInsertTextRule.None,
+              documentation: `Variable from workspace: ${varName}`,
+            } as any);
+          }
+        });
+
+        // Add workspace functions (other files)
+        workspaceSymbols.functions.forEach(funcName => {
+          if (!localFunctions.has(funcName)) {
+            suggestions.push({
+              label: funcName,
+              kind: monaco.languages.CompletionItemKind.Function,
+              insertText: `${funcName}($0)`,
+              insertTextRules: monaco.languages.CompletionItemInsertTextRule.InsertAsSnippet,
+              documentation: `Function from workspace: ${funcName}`,
+            } as any);
+          }
         });
 
         return { suggestions };
