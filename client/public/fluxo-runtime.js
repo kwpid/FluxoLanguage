@@ -408,8 +408,17 @@
     // Convert local to var/let
     jsCode = jsCode.replace(/\blocal\s+/g, 'let ');
     
-    // Convert module and export keywords
-    jsCode = jsCode.replace(/\bmodule\s+.*?\n/g, '');
+    // Handle module block syntax - convert "module name { ... }" to a namespace object
+    // This regex captures the module name and its content
+    jsCode = jsCode.replace(/\bmodule\s+(\w+)\s*\{([\s\S]*)\}\s*$/g, function(match, moduleName, moduleContent) {
+      // Create a namespace object for the module
+      return '(function() {\n' +
+             '  const ' + moduleName + ' = {};\n' +
+             moduleContent.replace(/\bexport\s+/g, moduleName + '.') +
+             '\n  window.' + moduleName + ' = ' + moduleName + ';\n' +
+             '  return ' + moduleName + ';\n' +
+             '})();';
+    });
     
     // Handle import statements - convert to require calls
     // import { thing } from "./module.fxm" -> const { thing } = require("./module.fxm")

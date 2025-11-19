@@ -88,6 +88,8 @@ export function OutputPanel({ output, onClear, activeFile, fileContents = {}, on
       // index.html exists - always show it with Fluxo runtime injected
       const htmlWithRuntime = injectFluxoRuntime(fileContents[indexHtmlPath]);
       setPreviewHtml(htmlWithRuntime);
+      // Automatically switch to preview tab to show the HTML
+      setActiveTab('preview');
     } else if (activeFile && fileContents[activeFile]) {
       // Fallback: if no index.html, show current file if it's HTML or Fluxo
       const isHtmlFile = activeFile.endsWith('.html') || activeFile.endsWith('.htm');
@@ -96,9 +98,11 @@ export function OutputPanel({ output, onClear, activeFile, fileContents = {}, on
       if (isHtmlFile) {
         const htmlWithRuntime = injectFluxoRuntime(fileContents[activeFile]);
         setPreviewHtml(htmlWithRuntime);
+        setActiveTab('preview');
       } else if (isHtmlSupporterEnabled && isFluxoFile) {
         const wrappedHtml = wrapFluxoInHtml(fileContents[activeFile], activeFile);
         setPreviewHtml(wrappedHtml);
+        setActiveTab('preview');
       } else {
         setPreviewHtml('');
       }

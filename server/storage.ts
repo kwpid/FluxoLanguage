@@ -39,7 +39,7 @@ export class MemStorage implements IStorage {
       id: randomUUID(),
       name,
       fileTree: this.createInitialFileTree(),
-      openTabs: ['/README.fxo'],
+      openTabs: ['/index.html', '/main.fxm', '/README.fxo'],
       activeTab: '/README.fxo',
       extensions: [],
     };
@@ -161,41 +161,39 @@ export class MemStorage implements IStorage {
         content: `// main.fxm - Main Fluxo Module
 // This module is loaded by index.html
 
-module main {
-  local clickCount = 0
+local clickCount = 0
+
+function handleButtonClick() {
+  clickCount = clickCount + 1
+  console.log("Button clicked! Count:", clickCount)
   
-  export function handleButtonClick() {
-    clickCount = clickCount + 1
-    console.log("Button clicked! Count:", clickCount)
-    
-    // Update button text
-    local button = document.getElementById("actionButton")
-    if (button != null) {
-      button.textContent = "Clicked " + clickCount + " time" + (clickCount > 1 ? "s" : "") + "!"
-    }
-    
-    // Update output area
-    local outputDiv = document.getElementById("output")
-    if (outputDiv != null) {
-      outputDiv.textContent = "Success! You clicked the button " + clickCount + " times."
-      outputDiv.classList.add("active")
-    }
+  // Update button text
+  local button = document.getElementById("actionButton")
+  if (button != null) {
+    button.textContent = "Clicked " + clickCount + " time" + (clickCount > 1 ? "s" : "") + "!"
   }
   
-  export function init() {
-    console.log("Fluxo main module initialized!")
-    
-    // Attach click event to button
-    local button = document.getElementById("actionButton")
-    if (button != null) {
-      button.addEventListener("click", main.handleButtonClick)
-      console.log("✓ Button click handler attached")
-    }
+  // Update output area
+  local outputDiv = document.getElementById("output")
+  if (outputDiv != null) {
+    outputDiv.textContent = "Success! You clicked the button " + clickCount + " times."
+    outputDiv.classList.add("active")
+  }
+}
+
+function init() {
+  console.log("Fluxo main module initialized!")
+  
+  // Attach click event to button
+  local button = document.getElementById("actionButton")
+  if (button != null) {
+    button.addEventListener("click", handleButtonClick)
+    console.log("✓ Button click handler attached")
   }
 }
 
 // Initialize when module loads
-main.init()`,
+init()`,
       },
       {
         id: randomUUID(),
