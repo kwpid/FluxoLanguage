@@ -126,6 +126,11 @@ export function Terminal() {
         }
         try {
           const response = await apiRequest('POST', '/api/extensions/install', { id: extId });
+          if (!response.ok) {
+            const error = await response.json();
+            addLine('error', `Failed to install: ${error.error || response.statusText}`);
+            return;
+          }
           const result = await response.json();
           addLine('success', `Installed extension: ${result.name}`);
           queryClient.invalidateQueries({ queryKey: ['/api/extensions'] });
@@ -141,7 +146,12 @@ export function Terminal() {
           return;
         }
         try {
-          await apiRequest('POST', '/api/extensions/uninstall', { id: extId });
+          const response = await apiRequest('POST', '/api/extensions/uninstall', { id: extId });
+          if (!response.ok) {
+            const error = await response.json();
+            addLine('error', `Failed to uninstall: ${error.error || response.statusText}`);
+            return;
+          }
           addLine('success', `Uninstalled extension: ${extId}`);
           queryClient.invalidateQueries({ queryKey: ['/api/extensions'] });
         } catch (error: any) {
@@ -155,7 +165,12 @@ export function Terminal() {
           return;
         }
         try {
-          await apiRequest('POST', '/api/extensions/toggle', { id: extId, enabled: true });
+          const response = await apiRequest('POST', '/api/extensions/toggle', { id: extId, enabled: true });
+          if (!response.ok) {
+            const error = await response.json();
+            addLine('error', `Failed to enable: ${error.error || response.statusText}`);
+            return;
+          }
           addLine('success', `Enabled extension: ${extId}`);
           queryClient.invalidateQueries({ queryKey: ['/api/extensions'] });
         } catch (error: any) {
@@ -169,7 +184,12 @@ export function Terminal() {
           return;
         }
         try {
-          await apiRequest('POST', '/api/extensions/toggle', { id: extId, enabled: false });
+          const response = await apiRequest('POST', '/api/extensions/toggle', { id: extId, enabled: false });
+          if (!response.ok) {
+            const error = await response.json();
+            addLine('error', `Failed to disable: ${error.error || response.statusText}`);
+            return;
+          }
           addLine('success', `Disabled extension: ${extId}`);
           queryClient.invalidateQueries({ queryKey: ['/api/extensions'] });
         } catch (error: any) {

@@ -1,7 +1,21 @@
 import { z } from "zod";
 
+// Extension types (defined first to avoid circular reference)
+export const extensionSchema = z.object({
+  id: z.string(),
+  name: z.string(),
+  version: z.string(),
+  description: z.string(),
+  author: z.string(),
+  category: z.enum(['theme', 'language', 'utility', 'formatter', 'linter']),
+  enabled: z.boolean(),
+  installedAt: z.number(),
+});
+
+export type Extension = z.infer<typeof extensionSchema>;
+
 // File system types
-export const fileNodeSchema = z.object({
+export const fileNodeSchema: z.ZodType<any> = z.object({
   id: z.string(),
   name: z.string(),
   type: z.enum(['file', 'folder']),
@@ -20,7 +34,7 @@ export const workspaceStateSchema = z.object({
   openTabs: z.array(z.string()),
   activeTab: z.string().optional(),
   fileTree: z.array(fileNodeSchema),
-  extensions: z.array(z.lazy(() => extensionSchema)).optional(),
+  extensions: z.array(extensionSchema).optional(),
 });
 
 export type WorkspaceState = z.infer<typeof workspaceStateSchema>;
@@ -101,20 +115,7 @@ export const executeCodeResponseSchema = z.object({
 
 export type ExecuteCodeResponse = z.infer<typeof executeCodeResponseSchema>;
 
-// Extension types
-export const extensionSchema = z.object({
-  id: z.string(),
-  name: z.string(),
-  version: z.string(),
-  description: z.string(),
-  author: z.string(),
-  category: z.enum(['theme', 'language', 'utility', 'formatter', 'linter']),
-  enabled: z.boolean(),
-  installedAt: z.number(),
-});
-
-export type Extension = z.infer<typeof extensionSchema>;
-
+// Extension request schemas
 export const installExtensionRequestSchema = z.object({
   id: z.string(),
 });
