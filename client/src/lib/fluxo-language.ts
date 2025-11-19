@@ -5,6 +5,39 @@ export function registerFluxoLanguage() {
     // Register Fluxo language
     monaco.languages.register({ id: 'fluxo' });
 
+    // Set language configuration for auto-closing pairs and other editor features
+    monaco.languages.setLanguageConfiguration('fluxo', {
+      comments: {
+        lineComment: '//',
+        blockComment: ['/*', '*/']
+      },
+      brackets: [
+        ['{', '}'],
+        ['[', ']'],
+        ['(', ')']
+      ],
+      autoClosingPairs: [
+        { open: '{', close: '}' },
+        { open: '[', close: ']' },
+        { open: '(', close: ')' },
+        { open: '"', close: '"', notIn: ['string'] },
+        { open: "'", close: "'", notIn: ['string'] }
+      ],
+      surroundingPairs: [
+        { open: '{', close: '}' },
+        { open: '[', close: ']' },
+        { open: '(', close: ')' },
+        { open: '"', close: '"' },
+        { open: "'", close: "'" }
+      ],
+      folding: {
+        markers: {
+          start: new RegExp('^\\s*//\\s*#?region\\b'),
+          end: new RegExp('^\\s*//\\s*#?endregion\\b')
+        }
+      }
+    });
+
     // Define syntax highlighting rules
     monaco.languages.setMonarchTokensProvider('fluxo', {
       keywords: [
@@ -99,7 +132,18 @@ export function registerFluxoLanguage() {
 
     // Define autocomplete suggestions
     monaco.languages.registerCompletionItemProvider('fluxo', {
-      provideCompletionItems: (model, position) => {
+      provideCompletionItems: async (model, position): Promise<any> => {
+        let workspaceSymbols: { variables: string[], functions: string[] } = { variables: [], functions: [] };
+        
+        try {
+          const response = await fetch('/api/workspace/symbols');
+          if (response.ok) {
+            workspaceSymbols = await response.json();
+          }
+        } catch (error) {
+          console.error('Failed to fetch workspace symbols:', error);
+        }
+
         const suggestions = [
           {
             label: 'module',
@@ -171,7 +215,34 @@ export function registerFluxoLanguage() {
             insertTextRules: monaco.languages.CompletionItemInsertTextRule.InsertAsSnippet,
             documentation: 'Add a hover event handler to an element (requires HTMLSupporter extension)',
           },
+          {
+            label: 'selectElement',
+            kind: monaco.languages.CompletionItemKind.Function,
+            insertText: 'selectElement("${1:#selector}")',
+            insertTextRules: monaco.languages.CompletionItemInsertTextRule.InsertAsSnippet,
+            documentation: 'Select an HTML element by CSS selector for manipulation',
+          },
         ];
+
+        workspaceSymbols.variables.forEach(varName => {
+          suggestions.push({
+            label: varName,
+            kind: monaco.languages.CompletionItemKind.Variable,
+            insertText: varName,
+            insertTextRules: monaco.languages.CompletionItemInsertTextRule.None,
+            documentation: `Variable from workspace: ${varName}`,
+          } as any);
+        });
+
+        workspaceSymbols.functions.forEach(funcName => {
+          suggestions.push({
+            label: funcName,
+            kind: monaco.languages.CompletionItemKind.Function,
+            insertText: `${funcName}($0)`,
+            insertTextRules: monaco.languages.CompletionItemInsertTextRule.InsertAsSnippet,
+            documentation: `Function from workspace: ${funcName}`,
+          } as any);
+        });
 
         return { suggestions };
       },

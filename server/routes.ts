@@ -151,7 +151,8 @@ export async function registerRoutes(app: Express): Promise<Server> {
     try {
       const data = executeCodeRequestSchema.parse(req.body);
       const interpreter = new FluxoInterpreter(data.path);
-      const output = await interpreter.execute(data.code);
+      const isHtmlFile = data.path.endsWith('.html') || data.path.endsWith('.htm');
+      const output = await interpreter.execute(data.code, isHtmlFile);
       res.json({ output });
     } catch (error: any) {
       res.json({ 
@@ -367,6 +368,58 @@ p {
       res.json({ success: true });
     } catch (error: any) {
       res.status(400).json({ error: error.message || 'Failed to toggle extension' });
+    }
+  });
+
+  app.get('/api/workspace/symbols', async (req, res) => {
+    try {
+      const fileTree = await storage.getFileTree();
+      const symbols: { variables: string[], functions: string[] } = {
+        variables: [],
+        functions: []
+      };
+
+      const extractSymbols = async (nodes: any[]) => {
+        for (const node of nodes) {
+          if (node.type === 'file' && (node.extension === '.fxo' || node.extension === '.fxm')) {
+            const content = await storage.getFileContent(node.path);
+            if (content) {
+              const varRegex = /local\s+(\w+)\s*=/g;
+              let varMatch;
+              while ((varMatch = varRegex.exec(content)) !== null) {
+                if (!symbols.variables.includes(varMatch[1])) {
+                  symbols.variables.push(varMatch[1]);
+                }
+              }
+              
+              const funcRegex = /function\s+(\w+)\s*\(/g;
+              let funcMatch;
+              while ((funcMatch = funcRegex.exec(content)) !== null) {
+                if (!symbols.functions.includes(funcMatch[1])) {
+                  symbols.functions.push(funcMatch[1]);
+                }
+              }
+
+              const exportFuncRegex = /export\s+function\s+(\w+)\s*\(/g;
+              let exportFuncMatch;
+              while ((exportFuncMatch = exportFuncRegex.exec(content)) !== null) {
+                if (!symbols.functions.includes(exportFuncMatch[1])) {
+                  symbols.functions.push(exportFuncMatch[1]);
+                }
+              }
+            }
+          }
+          
+          if (node.children) {
+            await extractSymbols(node.children);
+          }
+        }
+      };
+
+      await extractSymbols(fileTree);
+      res.json(symbols);
+    } catch (error: any) {
+      res.status(500).json({ error: error.message || 'Failed to extract workspace symbols' });
     }
   });
 

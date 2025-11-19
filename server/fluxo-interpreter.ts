@@ -48,9 +48,27 @@ export class FluxoInterpreter {
       this.addOutput('log', message);
     };
 
+    const selectElement = (selector: string) => {
+      return {
+        selector,
+        text: '',
+        onClick: (handler: Function) => {
+          this.addOutput('log', `Event handler registered for ${selector}: onClick`);
+        },
+        onChange: (handler: Function) => {
+          this.addOutput('log', `Event handler registered for ${selector}: onChange`);
+        },
+        onHover: (handler: Function) => {
+          this.addOutput('log', `Event handler registered for ${selector}: onHover`);
+        },
+      };
+    };
+
     this.context.variables.set('console', {
       log: consoleLog,
     });
+    
+    this.context.variables.set('selectElement', selectElement);
   }
 
   private addOutput(type: OutputMessage['type'], message: string) {
@@ -62,14 +80,34 @@ export class FluxoInterpreter {
     });
   }
 
-  async execute(code: string): Promise<OutputMessage[]> {
+  async execute(code: string, isHtmlFile: boolean = false): Promise<OutputMessage[]> {
     try {
+      if (isHtmlFile) {
+        code = this.extractFluxoFromHtml(code);
+      }
       code = this.removeComments(code);
       await this.parseAndExecute(code);
     } catch (error: any) {
       this.addOutput('error', error.message || 'Unknown error');
     }
     return this.context.output;
+  }
+
+  private extractFluxoFromHtml(html: string): string {
+    const scriptRegex = /<script\s+[^>]*type=["']text\/fluxo["'][^>]*>([\s\S]*?)<\/script>/gi;
+    const matches = [];
+    let match;
+    
+    while ((match = scriptRegex.exec(html)) !== null) {
+      matches.push(match[1]);
+    }
+    
+    if (matches.length === 0) {
+      this.addOutput('warning', 'No <script type="text/fluxo"> tags found in HTML file');
+      return '';
+    }
+    
+    return matches.join('\n\n');
   }
 
   private removeComments(code: string): string {
@@ -220,11 +258,11 @@ export class FluxoInterpreter {
     this.context.modules.set(moduleName, moduleObj);
 
     const moduleProxy: any = {};
-    for (const [funcName, func] of moduleObj.exports) {
+    moduleObj.exports.forEach((func, funcName) => {
       moduleProxy[funcName] = (...args: any[]) => {
         return this.executeFunction(func, args);
       };
-    }
+    });
 
     this.context.variables.set(moduleName, moduleProxy);
     
@@ -494,7 +532,7 @@ export class FluxoInterpreter {
   }
 
   private evaluateFunctionCall(expr: string): any {
-    const funcMatch = expr.match(/(\w+(?:\.\w+)?)\s*\((.*)\)/s);
+    const funcMatch = expr.match(/(\w+(?:\.\w+)?)\s*\(([\s\S]*)\)/);
     if (funcMatch) {
       const funcName = funcMatch[1];
       const argsStr = funcMatch[2];
