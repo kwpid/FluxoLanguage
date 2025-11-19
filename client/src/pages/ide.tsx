@@ -129,33 +129,61 @@ export default function IDE() {
   const runCode = useCallback(async () => {
     if (!activeTab) return;
     
+    const isHtmlFile = activeTab.endsWith('.html') || activeTab.endsWith('.htm');
+    
     setOutput([]);
     setIsRunning(true);
     
     try {
-      const response = await apiRequest('POST', '/api/execute', {
-        path: activeTab,
-        code: fileContents[activeTab] || '',
-      });
-      
-      const result = await response.json();
-      
-      setOutput(result.output || []);
-      
-      if (result.error) {
-        toast({
-          title: "Execution Error",
-          description: result.error,
-          variant: "destructive",
-        });
-      } else if (result.output && result.output.length === 0) {
-        // If there's no output, show a message
+      if (isHtmlFile) {
+        // For HTML files, the preview runs continuously in the browser
+        // Just show a message indicating the preview is active
         setOutput([{
           id: crypto.randomUUID(),
+          type: 'success',
+          message: 'HTML preview is running. Fluxo scripts are executing in the browser.',
+          timestamp: Date.now(),
+        }, {
+          id: crypto.randomUUID(),
           type: 'log',
-          message: 'Code executed successfully (no output)',
+          message: 'Switch to the Preview tab to see your HTML output.',
           timestamp: Date.now(),
         }]);
+        
+        toast({
+          title: "Preview Active",
+          description: "HTML is running in the Preview tab",
+        });
+        
+        // Keep isRunning true for HTML files (they run continuously)
+        setTimeout(() => setIsRunning(false), 1000);
+      } else {
+        // For Fluxo files, execute on the backend
+        const response = await apiRequest('POST', '/api/execute', {
+          path: activeTab,
+          code: fileContents[activeTab] || '',
+        });
+        
+        const result = await response.json();
+        
+        setOutput(result.output || []);
+        
+        if (result.error) {
+          toast({
+            title: "Execution Error",
+            description: result.error,
+            variant: "destructive",
+          });
+        } else if (result.output && result.output.length === 0) {
+          setOutput([{
+            id: crypto.randomUUID(),
+            type: 'log',
+            message: 'Code executed successfully (no output)',
+            timestamp: Date.now(),
+          }]);
+        }
+        
+        setIsRunning(false);
       }
     } catch (error) {
       toast({
@@ -163,7 +191,6 @@ export default function IDE() {
         description: "Failed to execute code",
         variant: "destructive",
       });
-    } finally {
       setIsRunning(false);
     }
   }, [activeTab, fileContents, toast]);

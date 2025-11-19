@@ -1,4 +1,4 @@
-import { useState, useEffect } from "react";
+import { useState, useEffect, useRef } from "react";
 import { OutputMessage } from "@shared/schema";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { Button } from "@/components/ui/button";
@@ -17,12 +17,74 @@ interface OutputPanelProps {
 export function OutputPanel({ output, onClear, activeFile, fileContents = {}, onSourceClick }: OutputPanelProps) {
   const [previewHtml, setPreviewHtml] = useState('');
   const [activeTab, setActiveTab] = useState('output');
+  const iframeRef = useRef<HTMLIFrameElement>(null);
+  
+  // Inject Fluxo runtime into HTML
+  const injectFluxoRuntime = (html: string): string => {
+    // Check if runtime is already injected
+    if (html.includes('data-fluxo-runtime')) {
+      return html;
+    }
+    
+    // Load runtime script from public folder by referencing the file
+    const runtimeScript = `<script data-fluxo-runtime src="/fluxo-runtime.js"></script>`;
+    
+    // Try to inject before closing </body> tag
+    if (html.includes('</body>')) {
+      return html.replace('</body>', `${runtimeScript}\n</body>`);
+    }
+    
+    // Try to inject before closing </html> tag
+    if (html.includes('</html>')) {
+      return html.replace('</html>', `${runtimeScript}\n</html>`);
+    }
+    
+    // If neither tag exists, append to the end
+    return html + '\n' + runtimeScript;
+  };
   
   useEffect(() => {
     // Update preview when active file changes or content changes
-    if (activeFile && activeFile.endsWith('.html') && fileContents[activeFile]) {
-      setPreviewHtml(fileContents[activeFile]);
+    if (activeFile && (activeFile.endsWith('.html') || activeFile.endsWith('.htm')) && fileContents[activeFile]) {
+      const htmlWithRuntime = injectFluxoRuntime(fileContents[activeFile]);
+      setPreviewHtml(htmlWithRuntime);
+      // Auto-switch to preview tab when HTML file is opened
+      setActiveTab('preview');
     }
+  }, [activeFile, fileContents]);
+  
+  // Listen for messages from iframe requesting Fluxo modules
+  useEffect(() => {
+    const handleMessage = async (event: MessageEvent) => {
+      if (event.data && event.data.type === 'fluxo-load-module' && iframeRef.current) {
+        // Iframe sends normalized absolute path
+        const requestedPath = event.data.path;
+        console.log('Loading Fluxo module:', requestedPath);
+        
+        // Load the module content from fileContents using the normalized path
+        if (fileContents[requestedPath]) {
+          // Send the module code back to the iframe with the SAME normalized path
+          iframeRef.current.contentWindow?.postMessage({
+            type: 'fluxo-module',
+            path: requestedPath, // Echo back the normalized path
+            code: fileContents[requestedPath]
+          }, '*');
+          console.log('✓ Sent module:', requestedPath);
+        } else {
+          console.error('✗ Module not found:', requestedPath);
+          console.error('Available files:', Object.keys(fileContents).filter((k: string) => k.endsWith('.fxm') || k.endsWith('.fxo')));
+          // Send error message
+          iframeRef.current.contentWindow?.postMessage({
+            type: 'fluxo-module-error',
+            path: requestedPath,
+            error: 'Module not found: ' + requestedPath
+          }, '*');
+        }
+      }
+    };
+    
+    window.addEventListener('message', handleMessage);
+    return () => window.removeEventListener('message', handleMessage);
   }, [activeFile, fileContents]);
   
   const isHtmlFile = activeFile?.endsWith('.html') || activeFile?.endsWith('.htm');
@@ -147,6 +209,7 @@ export function OutputPanel({ output, onClear, activeFile, fileContents = {}, on
         <TabsContent value="preview" className="flex-1 m-0 data-[state=active]:flex data-[state=inactive]:hidden">
           {isHtmlFile && previewHtml ? (
             <iframe
+              ref={iframeRef}
               srcDoc={previewHtml}
               className="w-full h-full border-0 bg-white"
               title="HTML Preview"
