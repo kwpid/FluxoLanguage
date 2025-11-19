@@ -1,0 +1,11 @@
+module main {
+    local isApp = true
+    local appName = "ModularV"
+    local version = "0.0.1 [ALPHA]"
+
+    export {
+        isApp,
+        appName,
+        version
+    }
+}
