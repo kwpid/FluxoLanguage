@@ -141,6 +141,79 @@ console.log(result)  // Output: 15`}
         </div>
       ),
     },
+    builtInFunctions: {
+      id: "built-in-functions",
+      title: "Built-in Functions",
+      keywords: ["console", "log", "wait", "timing", "delay", "pause", "built-in", "builtin"],
+      content: (
+        <div className="space-y-8">
+          <section className="space-y-4">
+            <h2 className="text-2xl font-bold">Console Logging</h2>
+            <p className="text-muted-foreground">
+              Use <code className="bg-muted px-2 py-1 rounded-md text-sm">console.log()</code> to output messages to the console. Great for debugging and displaying information.
+            </p>
+            <div className="bg-card border border-border rounded-md p-4">
+              <pre className="font-mono text-sm text-foreground">
+{`console.log("Hello, World!")
+console.log("Count:", 42)
+console.log("Multiple", "values", "work", "too")`}
+              </pre>
+            </div>
+          </section>
+
+          <section className="space-y-4">
+            <h2 className="text-2xl font-bold">Wait Function</h2>
+            <p className="text-muted-foreground">
+              The <code className="bg-muted px-2 py-1 rounded-md text-sm">wait()</code> function pauses code execution for a specified number of seconds. Supports decimal values for precise timing.
+            </p>
+            <div className="bg-card border border-border rounded-md p-4">
+              <pre className="font-mono text-sm text-foreground">
+{`// Wait 1 second
+console.log("Starting...")
+wait(1)
+console.log("1 second later!")
+
+// Wait 2.5 seconds
+wait(2.5)
+
+// Wait 100 milliseconds
+wait(0.1)`}
+              </pre>
+            </div>
+
+            <h3 className="text-xl font-semibold mt-6">Countdown Example</h3>
+            <p className="text-muted-foreground">
+              Create a simple countdown timer using the wait function:
+            </p>
+            <div className="bg-card border border-border rounded-md p-4">
+              <pre className="font-mono text-sm text-foreground">
+{`// Countdown from 3
+console.log("3")
+wait(1)
+console.log("2")
+wait(1)
+console.log("1")
+wait(1)
+console.log("Go!")
+
+// Animation example
+for (local i = 0; i < 5; i = i + 1) {
+  console.log("Frame", i)
+  wait(0.5)  // Wait half a second between frames
+}`}
+              </pre>
+            </div>
+
+            <div className="bg-primary/10 border border-primary/20 rounded-md p-4 mt-6">
+              <p className="text-sm font-semibold mb-2">Note</p>
+              <p className="text-sm text-muted-foreground">
+                The <code className="bg-muted px-1 py-0.5 rounded-md">wait()</code> function works like Lua's wait() - it pauses execution for the specified duration in seconds. Decimal values allow for precise timing control.
+              </p>
+            </div>
+          </section>
+        </div>
+      ),
+    },
     controlFlow: {
       id: "control-flow",
       title: "Control Flow",
