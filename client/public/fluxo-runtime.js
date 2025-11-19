@@ -304,7 +304,13 @@
           
           try {
             const moduleExports = await executeModule(event.data.code, resolvedPath);
-            resolve(moduleExports);
+            // Get the registry entry after execution to ensure we have the executed flag
+            const registryEntry = moduleRegistry.get(resolvedPath);
+            if (registryEntry) {
+              resolve(registryEntry.exports);
+            } else {
+              resolve(moduleExports);
+            }
           } catch (error) {
             console.error('Failed to execute module', resolvedPath, error);
             // Remove from registry on failure
