@@ -1,0 +1,10 @@
+local testVar = "World"
+local testNum = "123"
+
+console.log("Hello " + testVar + " " + testNum)
+
+function testFunc() {
+    console.log("Inside function: " + testVar)
+}
+
+testFunc()

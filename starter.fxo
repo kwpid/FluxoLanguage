@@ -1,7 +1,7 @@
 import from "packages/main" { appName, version, isApp }
 
 function startApp() {
-    if (isApp == true) {
+    if (isApp = true) {
         console.log("Starting " + appName + " (Version " + version + ")")
     }
 }

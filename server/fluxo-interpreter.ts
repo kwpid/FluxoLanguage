@@ -685,11 +685,12 @@ export class FluxoInterpreter {
 
   private async executeBlock(code: string) {
     const interpreter = new FluxoInterpreter(this.currentFilePath);
-    interpreter.context = {
-      ...this.context,
-      shouldReturn: false,
-      returnValue: undefined,
-    };
+    interpreter.context.variables = new Map(this.context.variables);
+    interpreter.context.functions = new Map(this.context.functions);
+    interpreter.context.modules = new Map(this.context.modules);
+    interpreter.context.output = this.context.output;
+    interpreter.context.shouldReturn = false;
+    interpreter.context.returnValue = undefined;
 
     let pos = 0;
     while (pos < code.length && !interpreter.context.shouldReturn) {
