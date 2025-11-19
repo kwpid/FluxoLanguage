@@ -16,6 +16,7 @@ Fluxo IDE is a modern, browser-based integrated development environment specific
 - Multiple Fluxo script blocks can be embedded in a single HTML file
 - Added `selectElement(selector)` function for DOM manipulation from Fluxo code
 - HTML files automatically extract and execute embedded Fluxo scripts
+- Full HTML syntax highlighting and support for .html, .css, .js, and .json files
 
 **Monaco Editor Enhancements:**
 - Added auto-closing brackets, quotes, and braces for improved coding efficiency
@@ -23,7 +24,14 @@ Fluxo IDE is a modern, browser-based integrated development environment specific
 - Implemented occurrence highlighting to show all instances of selected text
 - Added format-on-type and format-on-paste capabilities for automatic code formatting
 - Implemented workspace-wide variable tracking and suggestions across all files
-- Variables and functions defined in any file appear as auto-completion suggestions
+- **Instant local autocomplete**: Variables and functions defined in the current file appear immediately as you type
+- **Cross-file suggestions**: Variables and functions from other workspace files are also suggested
+
+**Output Panel Improvements:**
+- **Source tracking**: Every output message now includes the file path that generated it
+- **Click-to-source**: Click any output message to instantly jump to the file that produced it
+- Output messages show the originating filename for easy debugging
+- Hover tooltips indicate which file and line number generated each message
 
 **Extensions System:**
 - Created Extensions UI with Sheet component featuring Installed and Browse tabs
