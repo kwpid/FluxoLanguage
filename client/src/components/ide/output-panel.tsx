@@ -24,11 +24,12 @@ export function OutputPanel({ output, onClear, activeFile, fileContents = {}, on
   const [previewHtml, setPreviewHtml] = useState('');
   const [activeTab, setActiveTab] = useState('output');
   const iframeRef = useRef<HTMLIFrameElement>(null);
+  const hasAutoSwitchedToPreview = useRef(false);
   
   // Check if HTMLSupporter extension is enabled
   const isHtmlSupporterEnabled = extensions.some(ext => ext.id === 'html-supporter' && ext.enabled);
   
-  // Inject Fluxo runtime into HTML
+  // Inject Fluxo runtime and inline CSS into HTML
   const injectFluxoRuntime = (html: string): string => {
     // Check if runtime is already injected
     if (html.includes('data-fluxo-runtime')) {
@@ -38,18 +39,41 @@ export function OutputPanel({ output, onClear, activeFile, fileContents = {}, on
     // Load runtime script from public folder by referencing the file
     const runtimeScript = `<script data-fluxo-runtime src="/fluxo-runtime.js"></script>`;
     
-    // Try to inject before closing </body> tag
-    if (html.includes('</body>')) {
-      return html.replace('</body>', `${runtimeScript}\n</body>`);
+    // Inline external CSS files
+    let processedHtml = html;
+    
+    // Find all <link rel="stylesheet" href="..."> tags
+    const linkRegex = /<link\s+rel=["']stylesheet["']\s+href=["']([^"']+)["']\s*\/?>/gi;
+    let match;
+    
+    while ((match = linkRegex.exec(html)) !== null) {
+      const cssPath = match[1];
+      
+      // Normalize path (remove leading slash if present, then add it back)
+      const normalizedPath = cssPath.startsWith('/') ? cssPath : '/' + cssPath;
+      
+      // Get CSS content from fileContents
+      if (fileContents[normalizedPath]) {
+        const cssContent = fileContents[normalizedPath];
+        const inlineStyle = `<style data-inlined-from="${cssPath}">\n${cssContent}\n</style>`;
+        
+        // Replace the link tag with inline style
+        processedHtml = processedHtml.replace(match[0], inlineStyle);
+      }
+    }
+    
+    // Try to inject runtime before closing </body> tag
+    if (processedHtml.includes('</body>')) {
+      return processedHtml.replace('</body>', `${runtimeScript}\n</body>`);
     }
     
     // Try to inject before closing </html> tag
-    if (html.includes('</html>')) {
-      return html.replace('</html>', `${runtimeScript}\n</html>`);
+    if (processedHtml.includes('</html>')) {
+      return processedHtml.replace('</html>', `${runtimeScript}\n</html>`);
     }
     
     // If neither tag exists, append to the end
-    return html + '\n' + runtimeScript;
+    return processedHtml + '\n' + runtimeScript;
   };
   
   // Wrap Fluxo code in HTML with runtime using data-fluxo-code
@@ -88,8 +112,12 @@ export function OutputPanel({ output, onClear, activeFile, fileContents = {}, on
       // index.html exists - always show it with Fluxo runtime injected
       const htmlWithRuntime = injectFluxoRuntime(fileContents[indexHtmlPath]);
       setPreviewHtml(htmlWithRuntime);
-      // Automatically switch to preview tab to show the HTML
-      setActiveTab('preview');
+      
+      // Only auto-switch to preview tab on first load, not on every update
+      if (!hasAutoSwitchedToPreview.current && htmlWithRuntime) {
+        setActiveTab('preview');
+        hasAutoSwitchedToPreview.current = true;
+      }
     } else if (activeFile && fileContents[activeFile]) {
       // Fallback: if no index.html, show current file if it's HTML or Fluxo
       const isHtmlFile = activeFile.endsWith('.html') || activeFile.endsWith('.htm');
@@ -98,11 +126,21 @@ export function OutputPanel({ output, onClear, activeFile, fileContents = {}, on
       if (isHtmlFile) {
         const htmlWithRuntime = injectFluxoRuntime(fileContents[activeFile]);
         setPreviewHtml(htmlWithRuntime);
-        setActiveTab('preview');
+        
+        // Only auto-switch on first load
+        if (!hasAutoSwitchedToPreview.current && htmlWithRuntime) {
+          setActiveTab('preview');
+          hasAutoSwitchedToPreview.current = true;
+        }
       } else if (isHtmlSupporterEnabled && isFluxoFile) {
         const wrappedHtml = wrapFluxoInHtml(fileContents[activeFile], activeFile);
         setPreviewHtml(wrappedHtml);
-        setActiveTab('preview');
+        
+        // Only auto-switch on first load
+        if (!hasAutoSwitchedToPreview.current && wrappedHtml) {
+          setActiveTab('preview');
+          hasAutoSwitchedToPreview.current = true;
+        }
       } else {
         setPreviewHtml('');
       }

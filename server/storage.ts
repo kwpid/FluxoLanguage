@@ -39,7 +39,7 @@ export class MemStorage implements IStorage {
       id: randomUUID(),
       name,
       fileTree: this.createInitialFileTree(),
-      openTabs: ['/index.html', '/main.fxm', '/README.fxo'],
+      openTabs: ['/index.html', '/main.fxm', '/styles.css', '/README.fxo'],
       activeTab: '/README.fxo',
       extensions: [],
     };
@@ -59,86 +59,8 @@ export class MemStorage implements IStorage {
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>Fluxo Live Preview</title>
-  <style>
-    * {
-      margin: 0;
-      padding: 0;
-      box-sizing: border-box;
-    }
-    
-    body {
-      font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Oxygen, Ubuntu, Cantarell, sans-serif;
-      background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
-      min-height: 100vh;
-      display: flex;
-      align-items: center;
-      justify-content: center;
-      padding: 20px;
-    }
-    
-    .container {
-      background: white;
-      padding: 40px;
-      border-radius: 10px;
-      box-shadow: 0 20px 60px rgba(0, 0, 0, 0.3);
-      max-width: 600px;
-      width: 100%;
-      text-align: center;
-    }
-    
-    h1 {
-      color: #333;
-      margin-bottom: 10px;
-      font-size: 32px;
-    }
-    
-    p {
-      color: #666;
-      margin-bottom: 30px;
-      line-height: 1.6;
-    }
-    
-    .btn {
-      background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
-      color: white;
-      border: none;
-      padding: 14px 35px;
-      font-size: 16px;
-      border-radius: 6px;
-      cursor: pointer;
-      transition: transform 0.2s, box-shadow 0.2s;
-      font-weight: 500;
-    }
-    
-    .btn:hover {
-      transform: translateY(-2px);
-      box-shadow: 0 10px 20px rgba(102, 126, 234, 0.4);
-    }
-    
-    .btn:active {
-      transform: translateY(0);
-    }
-    
-    #output {
-      margin-top: 25px;
-      padding: 20px;
-      background: #f5f5f5;
-      border-radius: 6px;
-      color: #333;
-      font-weight: 500;
-      min-height: 60px;
-      display: flex;
-      align-items: center;
-      justify-content: center;
-      border: 2px dashed #ddd;
-    }
-    
-    #output.active {
-      background: #e8f5e9;
-      border-color: #4caf50;
-      color: #2e7d32;
-    }
-  </style>
+  <link rel="stylesheet" href="/styles.css">
+  <script src="/fluxo-runtime.js"></script>
 </head>
 <body>
   <div class="container">
@@ -194,6 +116,93 @@ function init() {
 
 // Initialize when module loads
 init()`,
+      },
+      {
+        id: randomUUID(),
+        name: 'styles.css',
+        type: 'file',
+        path: '/styles.css',
+        extension: '.css',
+        content: `/* Fluxo Live Preview Styles */
+
+* {
+  margin: 0;
+  padding: 0;
+  box-sizing: border-box;
+}
+
+body {
+  font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Oxygen, Ubuntu, Cantarell, sans-serif;
+  background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+  min-height: 100vh;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 20px;
+}
+
+.container {
+  background: white;
+  padding: 40px;
+  border-radius: 10px;
+  box-shadow: 0 20px 60px rgba(0, 0, 0, 0.3);
+  max-width: 600px;
+  width: 100%;
+  text-align: center;
+}
+
+h1 {
+  color: #333;
+  margin-bottom: 10px;
+  font-size: 32px;
+}
+
+p {
+  color: #666;
+  margin-bottom: 30px;
+  line-height: 1.6;
+}
+
+.btn {
+  background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+  color: white;
+  border: none;
+  padding: 14px 35px;
+  font-size: 16px;
+  border-radius: 6px;
+  cursor: pointer;
+  transition: transform 0.2s, box-shadow 0.2s;
+  font-weight: 500;
+}
+
+.btn:hover {
+  transform: translateY(-2px);
+  box-shadow: 0 10px 20px rgba(102, 126, 234, 0.4);
+}
+
+.btn:active {
+  transform: translateY(0);
+}
+
+#output {
+  margin-top: 25px;
+  padding: 20px;
+  background: #f5f5f5;
+  border-radius: 6px;
+  color: #333;
+  font-weight: 500;
+  min-height: 60px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border: 2px dashed #ddd;
+}
+
+#output.active {
+  background: #e8f5e9;
+  border-color: #4caf50;
+  color: #2e7d32;
+}`,
       },
       {
         id: randomUUID(),
