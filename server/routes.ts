@@ -326,24 +326,81 @@ p {
   justify-content: center;
 }`;
 
-          const fluxoModuleContent = `// app.fxm - Fluxo Module for HTML Template
+          const fluxoModuleContent = `// app.fxm - Main Fluxo Module for HTML Template
 // This module is imported by the HTML file using data-fluxo-entry
+
+require("loader.fxm")
 
 module app {
   // Export a function to handle button click
   export function handleButtonClick() {
     console.log("Button clicked from Fluxo module!")
-    // You can add more logic here
+    
+    // Get the button element and change its text
+    local button = document.getElementById("myButton")
+    if (button != null) {
+      button.textContent = "Clicked!"
+    }
+    
+    // Show a message in the output area
+    local outputDiv = document.getElementById("output")
+    if (outputDiv != null) {
+      outputDiv.textContent = "Button was clicked successfully!"
+    }
   }
   
   // Example: Log a message when module loads
   export function init() {
-    console.log("Fluxo module initialized!")
+    console.log("Fluxo app module initialized!")
+    
+    // Attach click event to button
+    local button = document.getElementById("myButton")
+    if (button != null) {
+      button.addEventListener("click", app.handleButtonClick)
+    }
   }
 }
 
 // Call init when module loads
 app.init()`;
+
+          const loaderModuleContent = `// loader.fxm - Loader/Utilities Module
+// This module is loaded by app.fxm and provides helper functions
+
+module loader {
+  // Helper function to safely get elements
+  export function getElement(id) {
+    local element = document.getElementById(id)
+    if (element == null) {
+      console.log("Warning: Element with ID '" + id + "' not found")
+    }
+    return element
+  }
+  
+  // Helper function to set text content safely
+  export function setText(id, text) {
+    local element = loader.getElement(id)
+    if (element != null) {
+      element.textContent = text
+    }
+  }
+  
+  // Helper function to add click listener
+  export function onClick(id, callback) {
+    local element = loader.getElement(id)
+    if (element != null) {
+      element.addEventListener("click", callback)
+    }
+  }
+  
+  // Log when loader module is ready
+  export function init() {
+    console.log("Fluxo loader module initialized!")
+  }
+}
+
+// Call init when module loads
+loader.init()`;
 
           const readmeContent = `# Fluxo HTML Support
 
@@ -381,6 +438,7 @@ See \`example.html\` and \`app.fxm\` for a working example.
             { name: 'example.html', content: htmlTemplateContent },
             { name: 'styles.css', content: cssTemplateContent },
             { name: 'app.fxm', content: fluxoModuleContent },
+            { name: 'loader.fxm', content: loaderModuleContent },
             { name: 'README.md', content: readmeContent },
           ];
           
