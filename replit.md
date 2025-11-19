@@ -4,6 +4,36 @@
 
 Fluxo IDE is a modern, browser-based integrated development environment specifically designed for the Fluxo programming language. The application provides a full-featured coding experience with file/folder management, Monaco Editor integration for syntax highlighting and code editing, and live code execution with real-time output display. Built as a single-page application, it features a three-panel layout (file explorer, editor, and output panel) optimized for developer productivity and follows a dark-mode design system inspired by VS Code and modern code editors.
 
+## Recent Changes (November 19, 2025)
+
+**Monaco Editor Enhancements:**
+- Added auto-closing brackets and quotes for improved coding efficiency
+- Enabled bracket pair colorization and matching for better code readability
+- Implemented occurrence highlighting to show all instances of selected text
+
+**Extensions System:**
+- Created Extensions UI with Sheet component featuring Installed and Browse tabs
+- Added search functionality to filter extensions
+- Implemented HTMLSupporter extension for HTML/CSS element creation
+- Extensions can be installed, enabled/disabled, and uninstalled through the UI
+
+**Fluxo Language Extensions:**
+- Extended language syntax to support HTML element creation (createButton, createDiv, createInput, etc.)
+- Added event handler support (onClick, onChange, onHover, onFocus, onBlur, onSubmit)
+- Implemented autocomplete suggestions for HTML elements and event handlers
+- All HTML features available when HTMLSupporter extension is installed
+
+**Documentation Improvements:**
+- Completely reorganized documentation with tabbed sections:
+  - Getting Started
+  - Language Basics (Variables, Functions, Operators)
+  - Control Flow (If-Else, Loops)
+  - Modules
+  - HTML Support (Elements, Events, Examples)
+  - Best Practices
+- Added search functionality with keyword filtering across all documentation sections
+- Comprehensive examples for HTML element creation and event handling
+
 ## User Preferences
 
 Preferred communication style: Simple, everyday language.
