@@ -211,14 +211,23 @@ export async function registerRoutes(app: Express): Promise<Server> {
       // If HTML Supporter extension, create template files
       if (data.id === 'html-supporter') {
         try {
-          // Create HTML templates folder if it doesn't exist
+          // Create HTML templates folder first (ignore if it already exists)
+          try {
+            await storage.createFile('/', 'html-templates', 'folder');
+          } catch (folderError: any) {
+            // Folder might already exist, that's OK
+            if (!folderError.message?.includes('already exists')) {
+              throw folderError;
+            }
+          }
+          
           const htmlTemplateContent = `<!DOCTYPE html>
 <html lang="en">
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>Fluxo HTML Template</title>
-  <link rel="stylesheet" href="/html-templates/styles.css">
+  <link rel="stylesheet" href="styles.css">
 </head>
 <body>
   <div class="container">
@@ -308,9 +317,27 @@ p {
   justify-content: center;
 }`;
 
-          // Create the html-templates folder and files
-          await storage.createFile('/html-templates', 'index.html', 'file', htmlTemplateContent);
-          await storage.createFile('/html-templates', 'styles.css', 'file', cssTemplateContent);
+          const packageJsonContent = `{
+  "name": "html-support-package",
+  "version": "1.0.0",
+  "description": "HTML support package for Fluxo IDE",
+  "dependencies": {}
+}`;
+
+          // Create the html-templates folder and files (skip if they already exist)
+          const files = [
+            { name: 'example.html', content: htmlTemplateContent },
+            { name: 'styles.css', content: cssTemplateContent },
+            { name: 'package.json', content: packageJsonContent },
+          ];
+          
+          for (const file of files) {
+            const filePath = `/html-templates/${file.name}`;
+            const exists = await storage.getFileContent(filePath);
+            if (exists === undefined) {
+              await storage.createFile('/html-templates', file.name, 'file', file.content);
+            }
+          }
         } catch (fileError) {
           console.error('Failed to create template files:', fileError);
           // Continue anyway, don't fail the extension installation

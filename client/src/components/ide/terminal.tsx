@@ -133,7 +133,11 @@ export function Terminal() {
           }
           const result = await response.json();
           addLine('success', `Installed extension: ${result.name}`);
+          if (result.id === 'html-supporter') {
+            addLine('output', 'Creating template files in /html-templates...');
+          }
           queryClient.invalidateQueries({ queryKey: ['/api/extensions'] });
+          queryClient.invalidateQueries({ queryKey: ['/api/workspace'] });
         } catch (error: any) {
           addLine('error', `Failed to install: ${error.message}`);
         }
