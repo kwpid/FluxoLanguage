@@ -91,7 +91,7 @@ export class FluxoInterpreter {
         pos = await this.parseModule(code, pos);
       } else if (code.substring(pos).startsWith('function ')) {
         pos = this.parseFunctionDeclaration(code, pos);
-      } else if (code.substring(pos).startsWith('var ')) {
+      } else if (code.substring(pos).startsWith('local ')) {
         pos = this.parseVariableDeclaration(code, pos);
       } else if (code.substring(pos).startsWith('if ')) {
         pos = this.parseIfStatement(code, pos);
@@ -261,7 +261,7 @@ export class FluxoInterpreter {
   private parseVariableDeclaration(code: string, pos: number): number {
     const end = this.findStatementEnd(code, pos);
     const statement = code.substring(pos, end);
-    const match = statement.match(/var\s+(\w+)\s*=\s*(.+)/);
+    const match = statement.match(/local\s+(\w+)\s*=\s*(.+)/);
 
     if (match) {
       const varName = match[1];
@@ -384,7 +384,7 @@ export class FluxoInterpreter {
       pos = interpreter.skipWhitespace(code, pos);
       if (pos >= code.length) break;
 
-      if (code.substring(pos).startsWith('var ')) {
+      if (code.substring(pos).startsWith('local ')) {
         pos = interpreter.parseVariableDeclaration(code, pos);
       } else if (code.substring(pos).startsWith('if ')) {
         pos = interpreter.parseIfStatement(code, pos);

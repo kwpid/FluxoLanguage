@@ -7,6 +7,8 @@ import {
   updateFileRequestSchema,
   renameFileRequestSchema,
   deleteFileRequestSchema,
+  moveFileRequestSchema,
+  createWorkspaceRequestSchema,
   executeCodeRequestSchema,
 } from "@shared/schema";
 
@@ -17,6 +19,46 @@ export async function registerRoutes(app: Express): Promise<Server> {
       res.json(workspace);
     } catch (error) {
       res.status(500).json({ error: 'Failed to get workspace' });
+    }
+  });
+
+  app.get('/api/workspaces', async (req, res) => {
+    try {
+      const workspaces = await storage.getWorkspaceList();
+      res.json(workspaces);
+    } catch (error) {
+      res.status(500).json({ error: 'Failed to get workspaces' });
+    }
+  });
+
+  app.post('/api/workspaces/create', async (req, res) => {
+    try {
+      const data = createWorkspaceRequestSchema.parse(req.body);
+      const workspace = await storage.createWorkspace(data.name);
+      res.json(workspace);
+    } catch (error) {
+      res.status(400).json({ error: 'Failed to create workspace' });
+    }
+  });
+
+  app.post('/api/workspaces/switch', async (req, res) => {
+    try {
+      const { workspaceId } = req.body;
+      await storage.switchWorkspace(workspaceId);
+      const workspace = await storage.getWorkspace();
+      res.json(workspace);
+    } catch (error: any) {
+      res.status(400).json({ error: error.message || 'Failed to switch workspace' });
+    }
+  });
+
+  app.delete('/api/workspaces/:workspaceId', async (req, res) => {
+    try {
+      const { workspaceId } = req.params;
+      await storage.deleteWorkspace(workspaceId);
+      res.json({ success: true });
+    } catch (error: any) {
+      res.status(400).json({ error: error.message || 'Failed to delete workspace' });
     }
   });
 
@@ -89,6 +131,16 @@ export async function registerRoutes(app: Express): Promise<Server> {
       res.json({ success: true });
     } catch (error) {
       res.status(400).json({ error: 'Failed to delete file' });
+    }
+  });
+
+  app.post('/api/files/move', async (req, res) => {
+    try {
+      const data = moveFileRequestSchema.parse(req.body);
+      await storage.moveFile(data.sourcePath, data.targetPath);
+      res.json({ success: true });
+    } catch (error: any) {
+      res.status(400).json({ error: error.message || 'Failed to move file' });
     }
   });
 

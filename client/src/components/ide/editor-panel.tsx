@@ -123,6 +123,9 @@ export function EditorPanel({
               smoothScrolling: true,
               padding: { top: 16, bottom: 16 },
               bracketPairColorization: { enabled: true },
+              autoClosingBrackets: 'always',
+              autoClosingQuotes: 'always',
+              autoClosingOvertype: 'always',
               guides: {
                 bracketPairs: true,
                 indentation: true,

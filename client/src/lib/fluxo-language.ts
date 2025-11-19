@@ -9,7 +9,7 @@ export function registerFluxoLanguage() {
     monaco.languages.setMonarchTokensProvider('fluxo', {
       keywords: [
         'module', 'export', 'require', 'function', 'return', 'if', 'else',
-        'while', 'for', 'break', 'continue', 'var', 'let', 'const',
+        'while', 'for', 'break', 'continue', 'local',
         'true', 'false', 'null', 'undefined'
       ],
 

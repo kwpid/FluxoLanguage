@@ -1,29 +1,45 @@
-import { type FileNode, type WorkspaceState } from "@shared/schema";
+import { type FileNode, type WorkspaceState, type WorkspaceListItem } from "@shared/schema";
 import { randomUUID } from "crypto";
 
 export interface IStorage {
   getWorkspace(): Promise<WorkspaceState>;
+  getWorkspaceList(): Promise<WorkspaceListItem[]>;
+  getCurrentWorkspaceId(): Promise<string>;
+  createWorkspace(name: string): Promise<WorkspaceState>;
+  switchWorkspace(workspaceId: string): Promise<void>;
+  deleteWorkspace(workspaceId: string): Promise<void>;
   getFileTree(): Promise<FileNode[]>;
   getFileContent(path: string): Promise<string | undefined>;
   createFile(parentPath: string, name: string, type: 'file' | 'folder', content?: string): Promise<FileNode>;
   updateFile(path: string, content: string): Promise<void>;
   renameFile(oldPath: string, newName: string): Promise<void>;
   deleteFile(path: string): Promise<void>;
+  moveFile(sourcePath: string, targetPath: string): Promise<void>;
   updateWorkspaceState(openTabs: string[], activeTab?: string): Promise<void>;
 }
 
 export class MemStorage implements IStorage {
-  private fileTree: FileNode[];
-  private openTabs: string[];
-  private activeTab: string | undefined;
+  private workspaces: Map<string, WorkspaceState>;
+  private currentWorkspaceId: string;
 
   constructor() {
-    this.fileTree = this.createInitialWorkspace();
-    this.openTabs = ['/README.fxo'];
-    this.activeTab = '/README.fxo';
+    this.workspaces = new Map();
+    const defaultWorkspace = this.createDefaultWorkspace("Main Workspace");
+    this.workspaces.set(defaultWorkspace.id, defaultWorkspace);
+    this.currentWorkspaceId = defaultWorkspace.id;
   }
 
-  private createInitialWorkspace(): FileNode[] {
+  private createDefaultWorkspace(name: string): WorkspaceState {
+    return {
+      id: randomUUID(),
+      name,
+      fileTree: this.createInitialFileTree(),
+      openTabs: ['/README.fxo'],
+      activeTab: '/README.fxo',
+    };
+  }
+
+  private createInitialFileTree(): FileNode[] {
     return [
       {
         id: randomUUID(),
@@ -44,7 +60,7 @@ function greet(name) {
   return "Hello, " + name + "!"
 }
 
-var message = greet("World")
+local message = greet("World")
 console.log(message)
 console.log("Fluxo is running!")
 `,
@@ -65,8 +81,8 @@ function multiply(a, b) {
   return a * b
 }
 
-var result1 = add(5, 3)
-var result2 = multiply(4, 7)
+local result1 = add(5, 3)
+local result2 = multiply(4, 7)
 
 console.log("5 + 3 =", result1)
 console.log("4 * 7 =", result2)
@@ -81,8 +97,8 @@ console.log("4 * 7 =", result2)
             content: `// Example using a module
 require("modules/math-utils")
 
-var sum = mathUtils.sum(10, 20, 30)
-var product = mathUtils.product(2, 3, 4)
+local sum = mathUtils.sum(10, 20, 30)
+local product = mathUtils.product(2, 3, 4)
 
 console.log("Sum:", sum)
 console.log("Product:", product)
@@ -105,16 +121,16 @@ console.log("Product:", product)
             content: `// Math utilities module
 module mathUtils {
   export function sum(...numbers) {
-    var total = 0
-    for (var i = 0; i < numbers.length; i = i + 1) {
+    local total = 0
+    for (local i = 0; i < numbers.length; i = i + 1) {
       total = total + numbers[i]
     }
     return total
   }
 
   export function product(...numbers) {
-    var result = 1
-    for (var i = 0; i < numbers.length; i = i + 1) {
+    local result = 1
+    for (local i = 0; i < numbers.length; i = i + 1) {
       result = result * numbers[i]
     }
     return result
@@ -143,8 +159,8 @@ module stringUtils {
   }
 
   export function reverse(str) {
-    var result = ""
-    for (var i = str.length - 1; i >= 0; i = i - 1) {
+    local result = ""
+    for (local i = str.length - 1; i >= 0; i = i - 1) {
       result = result + str[i]
     }
     return result
@@ -165,9 +181,9 @@ module stringUtils {
 /* 
   VARIABLES
   ---------
-  var name = "John"
-  var age = 25
-  var isActive = true
+  local name = "John"
+  local age = 25
+  local isActive = true
 */
 
 /* 
@@ -210,7 +226,7 @@ module stringUtils {
     // code
   }
   
-  for (var i = 0; i < 10; i = i + 1) {
+  for (local i = 0; i < 10; i = i + 1) {
     // code
   }
 */
@@ -222,8 +238,61 @@ console.log("Explore the scripts/ and modules/ folders to learn more")
     ];
   }
 
-  private findNode(path: string, nodes: FileNode[] = this.fileTree): FileNode | undefined {
-    for (const node of nodes) {
+  private getCurrentWorkspace(): WorkspaceState {
+    const workspace = this.workspaces.get(this.currentWorkspaceId);
+    if (!workspace) {
+      throw new Error('Current workspace not found');
+    }
+    return workspace;
+  }
+
+  async getWorkspaceList(): Promise<WorkspaceListItem[]> {
+    return Array.from(this.workspaces.values()).map(ws => ({
+      id: ws.id,
+      name: ws.name,
+    }));
+  }
+
+  async getCurrentWorkspaceId(): Promise<string> {
+    return this.currentWorkspaceId;
+  }
+
+  async createWorkspace(name: string): Promise<WorkspaceState> {
+    const newWorkspace: WorkspaceState = {
+      id: randomUUID(),
+      name,
+      fileTree: [],
+      openTabs: [],
+      activeTab: undefined,
+    };
+    this.workspaces.set(newWorkspace.id, newWorkspace);
+    return newWorkspace;
+  }
+
+  async switchWorkspace(workspaceId: string): Promise<void> {
+    if (!this.workspaces.has(workspaceId)) {
+      throw new Error('Workspace not found');
+    }
+    this.currentWorkspaceId = workspaceId;
+  }
+
+  async deleteWorkspace(workspaceId: string): Promise<void> {
+    if (this.workspaces.size <= 1) {
+      throw new Error('Cannot delete the last workspace');
+    }
+    if (workspaceId === this.currentWorkspaceId) {
+      const workspaceIds = Array.from(this.workspaces.keys());
+      const newCurrentId = workspaceIds.find(id => id !== workspaceId);
+      if (newCurrentId) {
+        this.currentWorkspaceId = newCurrentId;
+      }
+    }
+    this.workspaces.delete(workspaceId);
+  }
+
+  private findNode(path: string, nodes?: FileNode[]): FileNode | undefined {
+    const searchNodes = nodes || this.getCurrentWorkspace().fileTree;
+    for (const node of searchNodes) {
       if (node.path === path) {
         return node;
       }
@@ -259,28 +328,25 @@ console.log("Explore the scripts/ and modules/ folders to learn more")
   }
 
   async getWorkspace(): Promise<WorkspaceState> {
-    return {
-      openTabs: this.openTabs,
-      activeTab: this.activeTab,
-      fileTree: this.fileTree,
-    };
+    return this.getCurrentWorkspace();
   }
 
   async updateWorkspaceState(openTabs: string[], activeTab?: string): Promise<void> {
+    const workspace = this.getCurrentWorkspace();
     const validTabs = openTabs.filter(path => this.findNode(path) !== undefined);
-    this.openTabs = validTabs;
+    workspace.openTabs = validTabs;
     
     if (activeTab && validTabs.includes(activeTab)) {
-      this.activeTab = activeTab;
+      workspace.activeTab = activeTab;
     } else if (validTabs.length > 0) {
-      this.activeTab = validTabs[0];
+      workspace.activeTab = validTabs[0];
     } else {
-      this.activeTab = undefined;
+      workspace.activeTab = undefined;
     }
   }
 
   async getFileTree(): Promise<FileNode[]> {
-    return this.fileTree;
+    return this.getCurrentWorkspace().fileTree;
   }
 
   async getFileContent(path: string): Promise<string | undefined> {
@@ -289,6 +355,7 @@ console.log("Explore the scripts/ and modules/ folders to learn more")
   }
 
   async createFile(parentPath: string, name: string, type: 'file' | 'folder', content?: string): Promise<FileNode> {
+    const workspace = this.getCurrentWorkspace();
     const newPath = parentPath === '/' ? `/${name}` : `${parentPath}/${name}`;
     
     const newNode: FileNode = {
@@ -302,7 +369,7 @@ console.log("Explore the scripts/ and modules/ folders to learn more")
     };
 
     if (parentPath === '/') {
-      this.fileTree.push(newNode);
+      workspace.fileTree.push(newNode);
     } else {
       const parent = this.findNode(parentPath);
       if (parent && parent.children) {
@@ -353,16 +420,18 @@ console.log("Explore the scripts/ and modules/ folders to learn more")
   }
 
   private updateOpenTabPaths(oldPath: string, newPath: string) {
-    const index = this.openTabs.indexOf(oldPath);
+    const workspace = this.getCurrentWorkspace();
+    const index = workspace.openTabs.indexOf(oldPath);
     if (index !== -1) {
-      this.openTabs[index] = newPath;
-      if (this.activeTab === oldPath) {
-        this.activeTab = newPath;
+      workspace.openTabs[index] = newPath;
+      if (workspace.activeTab === oldPath) {
+        workspace.activeTab = newPath;
       }
     }
   }
 
   async deleteFile(path: string): Promise<void> {
+    const workspace = this.getCurrentWorkspace();
     const node = this.findNode(path);
     if (node) {
       this.removeFromOpenTabs(path);
@@ -371,16 +440,17 @@ console.log("Explore the scripts/ and modules/ folders to learn more")
         this.removeDescendantsFromOpenTabs(node.children);
       }
       
-      this.deleteNodeFromTree(path, this.fileTree);
+      this.deleteNodeFromTree(path, workspace.fileTree);
     }
   }
 
   private removeFromOpenTabs(path: string) {
-    const index = this.openTabs.indexOf(path);
+    const workspace = this.getCurrentWorkspace();
+    const index = workspace.openTabs.indexOf(path);
     if (index !== -1) {
-      this.openTabs.splice(index, 1);
-      if (this.activeTab === path) {
-        this.activeTab = this.openTabs[0];
+      workspace.openTabs.splice(index, 1);
+      if (workspace.activeTab === path) {
+        workspace.activeTab = workspace.openTabs[0];
       }
     }
   }
@@ -392,6 +462,41 @@ console.log("Explore the scripts/ and modules/ folders to learn more")
         this.removeDescendantsFromOpenTabs(child.children);
       }
     }
+  }
+
+  async moveFile(sourcePath: string, targetPath: string): Promise<void> {
+    const workspace = this.getCurrentWorkspace();
+    const sourceNode = this.findNode(sourcePath);
+    const targetNode = this.findNode(targetPath);
+    
+    if (!sourceNode) {
+      throw new Error('Source file not found');
+    }
+    
+    if (!targetNode || targetNode.type !== 'folder') {
+      throw new Error('Target must be a folder');
+    }
+    
+    if (targetPath.startsWith(sourcePath + '/')) {
+      throw new Error('Cannot move a folder into itself');
+    }
+    
+    this.deleteNodeFromTree(sourcePath, workspace.fileTree);
+    
+    const newPath = `${targetPath}/${sourceNode.name}`;
+    sourceNode.path = newPath;
+    
+    if (sourceNode.children) {
+      this.updateChildrenPaths(sourceNode.children, newPath);
+    }
+    
+    if (targetNode.children) {
+      targetNode.children.push(sourceNode);
+    } else {
+      targetNode.children = [sourceNode];
+    }
+    
+    this.updateOpenTabPaths(sourcePath, newPath);
   }
 }
 

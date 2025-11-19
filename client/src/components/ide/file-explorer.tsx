@@ -29,6 +29,8 @@ export function FileExplorer({ fileTree, onFileClick, onRefresh }: FileExplorerP
   const [renameNode, setRenameNode] = useState<FileNode | null>(null);
   const [deleteDialogOpen, setDeleteDialogOpen] = useState(false);
   const [deleteNode, setDeleteNode] = useState<FileNode | null>(null);
+  const [draggedNode, setDraggedNode] = useState<FileNode | null>(null);
+  const [dropTargetPath, setDropTargetPath] = useState<string | null>(null);
 
   const toggleFolder = (path: string) => {
     setExpandedFolders(prev => {
@@ -58,9 +60,65 @@ export function FileExplorer({ fileTree, onFileClick, onRefresh }: FileExplorerP
     setDeleteDialogOpen(true);
   };
 
+  const handleDragStart = (e: React.DragEvent, node: FileNode) => {
+    e.stopPropagation();
+    setDraggedNode(node);
+    e.dataTransfer.effectAllowed = 'move';
+  };
+
+  const handleDragOver = (e: React.DragEvent, node: FileNode) => {
+    if (node.type === 'folder' && draggedNode && draggedNode.path !== node.path) {
+      e.preventDefault();
+      e.stopPropagation();
+      e.dataTransfer.dropEffect = 'move';
+      setDropTargetPath(node.path);
+    }
+  };
+
+  const handleDragLeave = (e: React.DragEvent) => {
+    e.stopPropagation();
+    setDropTargetPath(null);
+  };
+
+  const handleDrop = async (e: React.DragEvent, targetNode: FileNode) => {
+    e.preventDefault();
+    e.stopPropagation();
+    setDropTargetPath(null);
+
+    if (!draggedNode || targetNode.type !== 'folder' || draggedNode.path === targetNode.path) {
+      return;
+    }
+
+    if (targetNode.path.startsWith(draggedNode.path + '/')) {
+      return;
+    }
+
+    try {
+      await fetch('/api/files/move', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          sourcePath: draggedNode.path,
+          targetPath: targetNode.path,
+        }),
+      });
+      onRefresh();
+    } catch (error) {
+      console.error('Failed to move file:', error);
+    }
+
+    setDraggedNode(null);
+  };
+
+  const handleDragEnd = () => {
+    setDraggedNode(null);
+    setDropTargetPath(null);
+  };
+
   const renderNode = (node: FileNode, level: number = 0) => {
     const isExpanded = expandedFolders.has(node.path);
     const isFolder = node.type === 'folder';
+    const isDropTarget = dropTargetPath === node.path;
 
     return (
       <div key={node.path}>
@@ -70,8 +128,15 @@ export function FileExplorer({ fileTree, onFileClick, onRefresh }: FileExplorerP
               className={`
                 flex items-center h-7 px-2 cursor-pointer hover-elevate rounded-md
                 ${level > 0 ? `ml-${level * 4}` : ''}
+                ${isDropTarget ? 'bg-primary/20 border-2 border-primary' : ''}
               `}
               style={{ paddingLeft: `${level * 16 + 8}px` }}
+              draggable
+              onDragStart={(e) => handleDragStart(e, node)}
+              onDragOver={(e) => handleDragOver(e, node)}
+              onDragLeave={handleDragLeave}
+              onDrop={(e) => handleDrop(e, node)}
+              onDragEnd={handleDragEnd}
               onClick={() => {
                 if (isFolder) {
                   toggleFolder(node.path);

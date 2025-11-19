@@ -186,6 +186,7 @@ export default function IDE() {
         onSave={() => activeTab && saveFile(activeTab)}
         canSave={activeTab !== null && unsavedFiles.has(activeTab)}
         canRun={activeTab !== null}
+        currentWorkspaceName={workspace?.name || "Workspace"}
       />
       
       <ResizablePanelGroup direction="horizontal" className="flex-1">

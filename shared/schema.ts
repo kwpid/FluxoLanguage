@@ -15,12 +15,29 @@ export type FileNode = z.infer<typeof fileNodeSchema>;
 
 // Workspace state
 export const workspaceStateSchema = z.object({
+  id: z.string(),
+  name: z.string(),
   openTabs: z.array(z.string()),
   activeTab: z.string().optional(),
   fileTree: z.array(fileNodeSchema),
 });
 
 export type WorkspaceState = z.infer<typeof workspaceStateSchema>;
+
+// Workspace list item
+export const workspaceListItemSchema = z.object({
+  id: z.string(),
+  name: z.string(),
+});
+
+export type WorkspaceListItem = z.infer<typeof workspaceListItemSchema>;
+
+// Create workspace request
+export const createWorkspaceRequestSchema = z.object({
+  name: z.string(),
+});
+
+export type CreateWorkspaceRequest = z.infer<typeof createWorkspaceRequestSchema>;
 
 // Output message types
 export const outputMessageSchema = z.object({
@@ -61,6 +78,13 @@ export const deleteFileRequestSchema = z.object({
 });
 
 export type DeleteFileRequest = z.infer<typeof deleteFileRequestSchema>;
+
+export const moveFileRequestSchema = z.object({
+  sourcePath: z.string(),
+  targetPath: z.string(),
+});
+
+export type MoveFileRequest = z.infer<typeof moveFileRequestSchema>;
 
 export const executeCodeRequestSchema = z.object({
   path: z.string(),
