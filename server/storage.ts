@@ -433,14 +433,11 @@ console.log("Explore the scripts/ and modules/ folders to learn more")
       const mainFxmPath = '/main.fxm';
       const stylesCssPath = '/styles.css';
       
-      if (!workspace.fileTree.find(f => f.path === indexHtmlPath)) {
-        workspace.fileTree.push({
-          id: randomUUID(),
-          name: 'index.html',
-          type: 'file',
-          path: indexHtmlPath,
-          extension: '.html',
-          content: `<!DOCTYPE html>
+      const createdFiles: string[] = [];
+      
+      try {
+        if (!this.findNode(indexHtmlPath)) {
+          await this.createFile('/', 'index.html', 'file', `<!DOCTYPE html>
 <html lang="en">
 <head>
   <meta charset="UTF-8">
@@ -459,23 +456,12 @@ console.log("Explore the scripts/ and modules/ folders to learn more")
   
   <script type="module" data-fluxo-entry="main.fxm"></script>
 </body>
-</html>`,
-        });
-        
-        // Add to open tabs if not already there
-        if (!workspace.openTabs.includes(indexHtmlPath)) {
-          workspace.openTabs.push(indexHtmlPath);
+</html>`);
+          createdFiles.push(indexHtmlPath);
         }
-      }
-      
-      if (!workspace.fileTree.find(f => f.path === mainFxmPath)) {
-        workspace.fileTree.push({
-          id: randomUUID(),
-          name: 'main.fxm',
-          type: 'file',
-          path: mainFxmPath,
-          extension: '.fxm',
-          content: `// main.fxm - Main Fluxo Module
+        
+        if (!this.findNode(mainFxmPath)) {
+          await this.createFile('/', 'main.fxm', 'file', `// main.fxm - Main Fluxo Module
 // This module is loaded by index.html
 
 local clickCount = 0
@@ -510,23 +496,12 @@ function init() {
 }
 
 // Initialize when module loads
-init()`,
-        });
-        
-        // Add to open tabs if not already there
-        if (!workspace.openTabs.includes(mainFxmPath)) {
-          workspace.openTabs.push(mainFxmPath);
+init()`);
+          createdFiles.push(mainFxmPath);
         }
-      }
-      
-      if (!workspace.fileTree.find(f => f.path === stylesCssPath)) {
-        workspace.fileTree.push({
-          id: randomUUID(),
-          name: 'styles.css',
-          type: 'file',
-          path: stylesCssPath,
-          extension: '.css',
-          content: `/* Fluxo Live Preview Styles */
+        
+        if (!this.findNode(stylesCssPath)) {
+          await this.createFile('/', 'styles.css', 'file', `/* Fluxo Live Preview Styles */
 
 * {
   margin: 0;
@@ -605,18 +580,29 @@ p {
   background: #e8f5e9;
   border-color: #4caf50;
   color: #2e7d32;
-}`,
-        });
-        
-        // Add to open tabs if not already there
-        if (!workspace.openTabs.includes(stylesCssPath)) {
-          workspace.openTabs.push(stylesCssPath);
+}`);
+          createdFiles.push(stylesCssPath);
         }
+      } catch (error) {
+        // If file creation fails, log error but continue with extension installation
+        console.error('Error creating html-supporter files:', error);
       }
       
-      // Set active tab to index.html
-      workspace.activeTab = indexHtmlPath;
+      // Only add successfully created files to tabs
+      if (createdFiles.length > 0) {
+        // Deduplicate tabs using filter to maintain order
+        const tabSet = new Set(workspace.openTabs);
+        createdFiles.forEach(file => tabSet.add(file));
+        const allTabs = Array.from(tabSet);
+        
+        // Set activeTab to index.html only if it was newly created
+        const preferredActiveTab = createdFiles.includes(indexHtmlPath) ? indexHtmlPath : undefined;
+        await this.updateWorkspaceState(allTabs, preferredActiveTab);
+      }
     }
+    
+    // Always revalidate workspace state after any extension install to ensure tab consistency
+    await this.updateWorkspaceState(workspace.openTabs, workspace.activeTab);
     
     return extension;
   }
