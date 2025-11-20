@@ -18,6 +18,10 @@ export async function authenticateUser(
       return res.status(401).json({ error: 'Missing or invalid authorization header' });
     }
 
+    if (!supabase) {
+      return res.status(500).json({ error: 'Supabase not configured' });
+    }
+
     const token = authHeader.split(' ')[1];
 
     const { data: { user }, error } = await supabase.auth.getUser(token);
