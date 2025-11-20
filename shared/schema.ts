@@ -17,6 +17,11 @@ export const extensionSchema = z.object({
     description: z.string(),
     required: z.boolean().default(true),
   })).optional(),
+  trending: z.boolean().optional(),
+  downloads: z.number().optional(),
+  rating: z.number().optional(),
+  icon: z.string().optional(),
+  isCustom: z.boolean().default(false),
 });
 
 export type Extension = z.infer<typeof extensionSchema>;

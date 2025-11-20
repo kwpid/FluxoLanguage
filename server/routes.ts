@@ -391,6 +391,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
         enabled: false,
         downloadedAt: Date.now(),
         isInstalled: false,
+        isCustom: false,
       } : {
         id: data.id,
         name: data.id,
@@ -401,6 +402,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
         enabled: false,
         downloadedAt: Date.now(),
         isInstalled: false,
+        isCustom: true,
         packages: [], // Empty packages array for custom extensions
       };
       

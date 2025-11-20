@@ -1,4 +1,4 @@
-import { Play, Save, Code2, Book, Square } from "lucide-react";
+import { Play, Save, Code2, Book, Square, Package } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Separator } from "@/components/ui/separator";
 import { Link } from "wouter";
@@ -72,13 +72,24 @@ export function Toolbar({ onRun, onStop, onSave, canSave, canRun, isRunning, cur
 
         <Separator orientation="vertical" className="h-6" />
 
-        <ExtensionsSheet />
+        <Link href="/extensions">
+          <Button
+            size="sm"
+            variant="outline"
+            className="gap-2"
+            data-testid="button-extensions"
+          >
+            <Package className="h-4 w-4" />
+            Extensions
+          </Button>
+        </Link>
 
         <Link href="/docs">
           <Button
             size="sm"
             variant="outline"
             className="gap-2"
+            data-testid="button-docs"
           >
             <Book className="h-4 w-4" />
             Docs

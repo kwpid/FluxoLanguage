@@ -10,6 +10,10 @@ export const extensionsCatalog: Extension[] = [
     category: "language",
     enabled: false,
     isInstalled: false,
+    isCustom: false,
+    trending: true,
+    downloads: 1250,
+    rating: 4.8,
     installedAt: Date.now(),
     packages: [
       {
