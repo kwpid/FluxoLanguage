@@ -879,16 +879,28 @@ export class FluxoInterpreter {
 
   private async executeFunction(func: FluxoFunction, args: any[]): Promise<any> {
     const savedContext = {
-      variables: new Map(this.context.variables),
       shouldReturn: this.context.shouldReturn,
       returnValue: this.context.returnValue,
     };
 
+    // Save pre-existing values for each parameter (to restore later if they shadowed outer variables)
+    const savedParams = new Map<string, { existed: boolean; value: any }>();
+
     if (func.hasRestParam && func.params.length > 0) {
-      this.context.variables.set(func.params[0], args);
+      const paramName = func.params[0];
+      savedParams.set(paramName, {
+        existed: this.context.variables.has(paramName),
+        value: this.context.variables.get(paramName),
+      });
+      this.context.variables.set(paramName, args);
     } else {
       for (let i = 0; i < func.params.length; i++) {
-        this.context.variables.set(func.params[i], args[i]);
+        const paramName = func.params[i];
+        savedParams.set(paramName, {
+          existed: this.context.variables.has(paramName),
+          value: this.context.variables.get(paramName),
+        });
+        this.context.variables.set(paramName, args[i]);
       }
     }
 
@@ -899,7 +911,16 @@ export class FluxoInterpreter {
 
     const result = this.context.returnValue;
 
-    this.context.variables = savedContext.variables;
+    // Restore parameter bindings: if parameter shadowed an outer variable, restore it;
+    // otherwise delete the parameter
+    Array.from(savedParams.entries()).forEach(([paramName, saved]) => {
+      if (saved.existed) {
+        this.context.variables.set(paramName, saved.value);
+      } else {
+        this.context.variables.delete(paramName);
+      }
+    });
+
     this.context.shouldReturn = savedContext.shouldReturn;
     this.context.returnValue = savedContext.returnValue;
 
