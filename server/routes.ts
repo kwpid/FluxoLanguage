@@ -1,7 +1,9 @@
 import type { Express } from "express";
 import { createServer, type Server } from "http";
 import { storage } from "./storage";
+import { getStorage } from "./storage-factory";
 import { FluxoInterpreter } from "./fluxo-interpreter";
+import { optionalAuth, type AuthRequest } from "./middleware/auth";
 import {
   createFileRequestSchema,
   updateFileRequestSchema,
@@ -555,7 +557,7 @@ See \`example.html\` and \`app.fxm\` for a working example.
     }
   });
 
-  app.get('/api/workspace/symbols', async (req, res) => {
+  app.get('/api/symbols', async (req, res) => {
     try {
       const fileTree = await storage.getFileTree();
       const symbols: { variables: string[], functions: string[] } = {
