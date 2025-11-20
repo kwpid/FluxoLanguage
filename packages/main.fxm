@@ -1,11 +1,11 @@
-module main {
-    local isApp = true
-    local appName = "ModularV"
-    local version = "0.0.1 [ALPHA]"
+module appMain {
+    isApp = true
+    appName = "ModularV"
+    appVersion = "0.0.1-A"
 
     export {
         isApp,
         appName,
-        version
+        appVersion
     }
 }

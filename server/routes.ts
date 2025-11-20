@@ -4,6 +4,7 @@ import { storage } from "./storage";
 import { getStorage } from "./storage-factory";
 import { FluxoInterpreter } from "./fluxo-interpreter";
 import { optionalAuth, type AuthRequest } from "./middleware/auth";
+import { extensionsCatalog } from "./extensions-catalog";
 import {
   createFileRequestSchema,
   updateFileRequestSchema,
@@ -294,27 +295,25 @@ export async function registerRoutes(app: Express): Promise<Server> {
       const userStorage = getStorage(authReq.userId, authReq.accessToken);
       const data = downloadExtensionRequestSchema.parse(req.body);
       
-      // Get extension metadata from available extensions
-      const extensionMeta = data.id === 'html-supporter' ? {
-        name: 'HTMLSupporter',
-        version: '1.0.0',
-        description: 'Enables HTML support by importing Fluxo modules from HTML files',
-        author: 'Fluxo Team',
-        category: 'language' as const,
+      // Get extension metadata from extensions catalog, or use defaults for custom extensions
+      const catalogExtension = extensionsCatalog.find(ext => ext.id === data.id);
+      
+      const extension = catalogExtension ? {
+        ...catalogExtension,
+        enabled: false,
+        downloadedAt: Date.now(),
+        isInstalled: false,
       } : {
+        id: data.id,
         name: data.id,
         version: '1.0.0',
         description: 'Custom extension',
         author: 'User',
         category: 'utility' as const,
-      };
-      
-      const extension = {
-        ...data,
-        ...extensionMeta,
         enabled: false,
         downloadedAt: Date.now(),
         isInstalled: false,
+        packages: [], // Empty packages array for custom extensions
       };
       
       await userStorage.downloadExtension(extension);

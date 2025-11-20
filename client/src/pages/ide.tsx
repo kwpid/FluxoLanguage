@@ -1,4 +1,4 @@
-import { useState, useCallback, useEffect } from "react";
+import { useState, useCallback, useEffect, useRef } from "react";
 import { useQuery, useMutation } from "@tanstack/react-query";
 import { queryClient, apiRequest } from "@/lib/queryClient";
 import type { FileNode, WorkspaceState, OutputMessage } from "@shared/schema";
@@ -18,6 +18,7 @@ export default function IDE() {
   const [unsavedFiles, setUnsavedFiles] = useState<Set<string>>(new Set());
   const [output, setOutput] = useState<OutputMessage[]>([]);
   const [isRunning, setIsRunning] = useState(false);
+  const currentWorkspaceId = useRef<string | null>(null);
 
   const { data: workspace, isLoading } = useQuery<WorkspaceState>({
     queryKey: ['/api/workspace'],
@@ -28,21 +29,36 @@ export default function IDE() {
   });
 
   useEffect(() => {
-    if (workspace && workspace.openTabs.length > 0) {
-      setOpenTabs(workspace.openTabs);
-      if (workspace.activeTab) {
-        setActiveTab(workspace.activeTab);
+    if (workspace) {
+      // Check if workspace ID has changed
+      const workspaceChanged = currentWorkspaceId.current !== workspace.id;
+      
+      if (workspaceChanged) {
+        // Immediately reset all state when workspace changes to ensure no stale data
+        currentWorkspaceId.current = workspace.id;
+        setOpenTabs([]);
+        setActiveTab(null);
+        setFileContents({});
+        setUnsavedFiles(new Set());
       }
       
-      workspace.openTabs.forEach(async (path) => {
-        try {
-          const response = await fetch(`/api/files/content?path=${encodeURIComponent(path)}`);
-          const data = await response.json();
-          setFileContents(prev => ({ ...prev, [path]: data.content }));
-        } catch (error) {
-          console.error('Failed to load file:', path);
+      // Load new workspace data
+      if (workspace.openTabs.length > 0) {
+        setOpenTabs(workspace.openTabs);
+        if (workspace.activeTab) {
+          setActiveTab(workspace.activeTab);
         }
-      });
+        
+        workspace.openTabs.forEach(async (path) => {
+          try {
+            const response = await fetch(`/api/files/content?path=${encodeURIComponent(path)}`);
+            const data = await response.json();
+            setFileContents(prev => ({ ...prev, [path]: data.content }));
+          } catch (error) {
+            console.error('Failed to load file:', path);
+          }
+        });
+      }
     }
   }, [workspace]);
 

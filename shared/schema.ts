@@ -12,6 +12,11 @@ export const extensionSchema = z.object({
   downloadedAt: z.number().optional(),
   installedAt: z.number().optional(),
   isInstalled: z.boolean().default(false),
+  packages: z.array(z.object({
+    name: z.string(),
+    description: z.string(),
+    required: z.boolean().default(true),
+  })).optional(),
 });
 
 export type Extension = z.infer<typeof extensionSchema>;

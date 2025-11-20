@@ -1,8 +1,8 @@
-import from "packages/main" { appName, version, isApp }
+import from "packages/main" { appName, appVersion, isApp }
 
 function startApp() {
     if (isApp = true) {
-        console.log("Starting " + appName + " (Version " + version + ")")
+        console.log("Starting " + appName + " (Version " + appVersion + ")")
     }
 }
 

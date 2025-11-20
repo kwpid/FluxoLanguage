@@ -11,6 +11,23 @@ export const extensionsCatalog: Extension[] = [
     enabled: false,
     isInstalled: false,
     installedAt: Date.now(),
+    packages: [
+      {
+        name: "fluxo-runtime.js",
+        description: "Core Fluxo runtime for executing Fluxo modules in the browser",
+        required: true,
+      },
+      {
+        name: "DOM API Support",
+        description: "Provides document.getElementById, addEventListener, and other DOM manipulation APIs",
+        required: true,
+      },
+      {
+        name: "CSS Inlining",
+        description: "Automatically inlines external CSS files for proper preview rendering",
+        required: false,
+      },
+    ],
   },
 
 ];
