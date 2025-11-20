@@ -4,6 +4,30 @@
 
 Fluxo IDE is a modern, browser-based integrated development environment specifically designed for the Fluxo programming language. The application provides a full-featured coding experience with file/folder management, Monaco Editor integration for syntax highlighting and code editing, and live code execution with real-time output display. Built as a single-page application, it features a three-panel layout (file explorer, editor, and output panel) optimized for developer productivity and follows a dark-mode design system inspired by VS Code and modern code editors.
 
+## Deployment
+
+**Production URL:** https://fluxo-terminal.onrender.com/
+
+**Environment Variables Required:**
+- `SUPABASE_URL` - Supabase project URL for authentication and data storage
+- `SUPABASE_ANON_KEY` - Supabase anonymous API key
+- `PORT` - Server port (default: 5000)
+- `NODE_ENV` - Environment mode (set to `production` for Render)
+
+**Authentication:**
+- Email/password authentication via Supabase
+- Google OAuth has been removed as of November 20, 2025
+- User workspaces and files are persisted to Supabase when authenticated
+- Falls back to in-memory storage when no authentication is configured
+
+## Recent Changes (November 20, 2025)
+
+**Authentication Updates:**
+- **REMOVED**: Google OAuth sign-in functionality
+- **SIMPLIFIED**: Authentication now uses email/password only
+- **CONFIGURED**: Supabase environment variables for Render deployment
+- Fixed Supabase initialization to work without credentials in development
+
 ## Recent Changes (November 19, 2025)
 
 **Version 1.1.0 - Enhanced Module Import/Export System:**
