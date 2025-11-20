@@ -146,6 +146,90 @@ export function registerFluxoLanguage() {
 
         // Parse current model for local variables and functions
         const currentCode = model.getValue();
+        
+        // Check if we're inside an import statement
+        const lineContent = model.getLineContent(position.lineNumber);
+        const textUntilPosition = model.getValueInRange({
+          startLineNumber: 1,
+          startColumn: 1,
+          endLineNumber: position.lineNumber,
+          endColumn: position.column,
+        });
+        
+        // Detect if we're typing inside import from "..." { }
+        const importMatch = textUntilPosition.match(/import\s+from\s+"([^"]+)"\s*\{\s*([^}]*)$/);
+        const es6ImportMatch = textUntilPosition.match(/import\s*\{\s*([^}]*)$/);
+        
+        if (importMatch || es6ImportMatch) {
+          // We're inside an import statement - suggest available exports from the module
+          let modulePath = importMatch ? importMatch[1] : null;
+          
+          if (modulePath) {
+            try {
+              const fullPath = modulePath.startsWith('/') ? modulePath : `/${modulePath}`;
+              const moduleFilePath = fullPath.endsWith('.fxm') ? fullPath : `${fullPath}.fxm`;
+              
+              const response = await fetch(`/api/files${moduleFilePath}`);
+              if (response.ok) {
+                const fileData = await response.json();
+                const moduleContent = fileData.content;
+                
+                const exportSuggestions: any[] = [];
+                
+                // Extract export function declarations
+                const exportFuncRegex = /export\s+function\s+([a-zA-Z_]\w*)\s*\(/g;
+                let match;
+                while ((match = exportFuncRegex.exec(moduleContent)) !== null) {
+                  exportSuggestions.push({
+                    label: match[1],
+                    kind: monaco.languages.CompletionItemKind.Function,
+                    insertText: match[1],
+                    documentation: `Exported function from ${modulePath}`,
+                  });
+                }
+                
+                // Extract export { } block
+                const exportBlockMatch = moduleContent.match(/export\s*\{([^}]+)\}/);
+                if (exportBlockMatch) {
+                  const exports = exportBlockMatch[1].split(',').map((e: string) => e.trim()).filter((e: string) => e);
+                  exports.forEach((exportName: string) => {
+                    exportSuggestions.push({
+                      label: exportName,
+                      kind: monaco.languages.CompletionItemKind.Variable,
+                      insertText: exportName,
+                      documentation: `Exported from ${modulePath}`,
+                    });
+                  });
+                }
+                
+                return { suggestions: exportSuggestions };
+              }
+            } catch (error) {
+              console.error('Failed to fetch module exports:', error);
+            }
+          }
+          
+          // Fallback: show workspace symbols
+          const importSuggestions: any[] = [];
+          workspaceSymbols.functions.forEach(funcName => {
+            importSuggestions.push({
+              label: funcName,
+              kind: monaco.languages.CompletionItemKind.Function,
+              insertText: funcName,
+              documentation: 'Function from workspace',
+            });
+          });
+          workspaceSymbols.variables.forEach(varName => {
+            importSuggestions.push({
+              label: varName,
+              kind: monaco.languages.CompletionItemKind.Variable,
+              insertText: varName,
+              documentation: 'Variable from workspace',
+            });
+          });
+          return { suggestions: importSuggestions };
+        }
+        
         const localVariables = new Set<string>();
         const localFunctions = new Set<string>();
         
