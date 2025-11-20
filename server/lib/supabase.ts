@@ -1,5 +1,5 @@
 import { createClient } from '@supabase/supabase-js';
-import type { Database } from '@shared/database.types';
+import type { Database } from '../../shared/database.types';
 
 if (!process.env.SUPABASE_URL) {
   throw new Error('Missing SUPABASE_URL environment variable');
