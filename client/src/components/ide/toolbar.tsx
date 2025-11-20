@@ -4,6 +4,7 @@ import { Separator } from "@/components/ui/separator";
 import { Link } from "wouter";
 import { WorkspaceSelector } from "./workspace-selector";
 import { ExtensionsSheet } from "./extensions-sheet";
+import { UserMenu } from "@/components/auth/user-menu";
 
 interface ToolbarProps {
   onRun: () => void;
@@ -85,8 +86,9 @@ export function Toolbar({ onRun, onStop, onSave, canSave, canRun, isRunning, cur
         </Link>
       </div>
 
-      <div className="ml-auto text-xs text-muted-foreground">
-        Welcome to Fluxo IDE
+      <div className="ml-auto flex items-center gap-3">
+        <Separator orientation="vertical" className="h-6" />
+        <UserMenu />
       </div>
     </div>
   );
