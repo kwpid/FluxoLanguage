@@ -426,6 +426,198 @@ console.log("Explore the scripts/ and modules/ folders to learn more")
     extension.installedAt = Date.now();
     extension.enabled = true;
     
+    // When html-supporter is installed, create example HTML files
+    if (extensionId === 'html-supporter') {
+      // Only create files if they don't already exist
+      const indexHtmlPath = '/index.html';
+      const mainFxmPath = '/main.fxm';
+      const stylesCssPath = '/styles.css';
+      
+      if (!workspace.fileTree.find(f => f.path === indexHtmlPath)) {
+        workspace.fileTree.push({
+          id: randomUUID(),
+          name: 'index.html',
+          type: 'file',
+          path: indexHtmlPath,
+          extension: '.html',
+          content: `<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Fluxo Live Preview</title>
+  <link rel="stylesheet" href="/styles.css">
+  <script src="/fluxo-runtime.js"></script>
+</head>
+<body>
+  <div class="container">
+    <h1>Fluxo Live Preview</h1>
+    <p>This page automatically updates when you edit Fluxo code. Click the button to test the interactive functionality!</p>
+    <button id="actionButton" class="btn">Click Me!</button>
+    <div id="output">Waiting for interaction...</div>
+  </div>
+  
+  <script type="module" data-fluxo-entry="main.fxm"></script>
+</body>
+</html>`,
+        });
+        
+        // Add to open tabs if not already there
+        if (!workspace.openTabs.includes(indexHtmlPath)) {
+          workspace.openTabs.push(indexHtmlPath);
+        }
+      }
+      
+      if (!workspace.fileTree.find(f => f.path === mainFxmPath)) {
+        workspace.fileTree.push({
+          id: randomUUID(),
+          name: 'main.fxm',
+          type: 'file',
+          path: mainFxmPath,
+          extension: '.fxm',
+          content: `// main.fxm - Main Fluxo Module
+// This module is loaded by index.html
+
+local clickCount = 0
+
+function handleButtonClick() {
+  clickCount = clickCount + 1
+  console.log("Button clicked! Count:", clickCount)
+  
+  // Update button text
+  local button = document.getElementById("actionButton")
+  if (button != null) {
+    button.textContent = "Clicked " + clickCount + " time" + (clickCount > 1 ? "s" : "") + "!"
+  }
+  
+  // Update output area
+  local outputDiv = document.getElementById("output")
+  if (outputDiv != null) {
+    outputDiv.textContent = "Success! You clicked the button " + clickCount + " times."
+    outputDiv.classList.add("active")
+  }
+}
+
+function init() {
+  console.log("Fluxo main module initialized!")
+  
+  // Attach click event to button
+  local button = document.getElementById("actionButton")
+  if (button != null) {
+    button.addEventListener("click", handleButtonClick)
+    console.log("✓ Button click handler attached")
+  }
+}
+
+// Initialize when module loads
+init()`,
+        });
+        
+        // Add to open tabs if not already there
+        if (!workspace.openTabs.includes(mainFxmPath)) {
+          workspace.openTabs.push(mainFxmPath);
+        }
+      }
+      
+      if (!workspace.fileTree.find(f => f.path === stylesCssPath)) {
+        workspace.fileTree.push({
+          id: randomUUID(),
+          name: 'styles.css',
+          type: 'file',
+          path: stylesCssPath,
+          extension: '.css',
+          content: `/* Fluxo Live Preview Styles */
+
+* {
+  margin: 0;
+  padding: 0;
+  box-sizing: border-box;
+}
+
+body {
+  font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Oxygen, Ubuntu, Cantarell, sans-serif;
+  background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+  min-height: 100vh;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 20px;
+}
+
+.container {
+  background: white;
+  padding: 40px;
+  border-radius: 10px;
+  box-shadow: 0 20px 60px rgba(0, 0, 0, 0.3);
+  max-width: 600px;
+  width: 100%;
+  text-align: center;
+}
+
+h1 {
+  color: #333;
+  margin-bottom: 10px;
+  font-size: 32px;
+}
+
+p {
+  color: #666;
+  margin-bottom: 30px;
+  line-height: 1.6;
+}
+
+.btn {
+  background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+  color: white;
+  border: none;
+  padding: 14px 35px;
+  font-size: 16px;
+  border-radius: 6px;
+  cursor: pointer;
+  transition: transform 0.2s, box-shadow 0.2s;
+  font-weight: 500;
+}
+
+.btn:hover {
+  transform: translateY(-2px);
+  box-shadow: 0 10px 20px rgba(102, 126, 234, 0.4);
+}
+
+.btn:active {
+  transform: translateY(0);
+}
+
+#output {
+  margin-top: 25px;
+  padding: 20px;
+  background: #f5f5f5;
+  border-radius: 6px;
+  color: #333;
+  font-weight: 500;
+  min-height: 60px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border: 2px dashed #ddd;
+}
+
+#output.active {
+  background: #e8f5e9;
+  border-color: #4caf50;
+  color: #2e7d32;
+}`,
+        });
+        
+        // Add to open tabs if not already there
+        if (!workspace.openTabs.includes(stylesCssPath)) {
+          workspace.openTabs.push(stylesCssPath);
+        }
+      }
+      
+      // Set active tab to index.html
+      workspace.activeTab = indexHtmlPath;
+    }
+    
     return extension;
   }
 
