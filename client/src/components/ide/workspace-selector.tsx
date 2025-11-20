@@ -21,7 +21,7 @@ import {
 } from "@/components/ui/dialog";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import { FolderTree, Plus, Trash2 } from "lucide-react";
+import { FolderTree, Plus, Trash2, Check } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 
 interface WorkspaceSelectorProps {
@@ -66,13 +66,17 @@ export function WorkspaceSelector({ currentWorkspaceName }: WorkspaceSelectorPro
     }
   };
 
-  const handleSwitchWorkspace = async (workspaceId: string) => {
+  const handleSwitchWorkspace = async (workspaceId: string, workspaceName: string) => {
+    if (workspaceName === currentWorkspaceName) {
+      return;
+    }
+    
     try {
       await apiRequest('POST', '/api/workspaces/switch', { workspaceId });
-      queryClient.invalidateQueries({ queryKey: ['/api/workspace'] });
+      await queryClient.invalidateQueries({ queryKey: ['/api/workspace'] });
       toast({
         title: "Success",
-        description: "Switched workspace successfully",
+        description: `Switched to "${workspaceName}" workspace`,
       });
     } catch (error) {
       toast({
@@ -114,7 +118,12 @@ export function WorkspaceSelector({ currentWorkspaceName }: WorkspaceSelectorPro
     <>
       <DropdownMenu>
         <DropdownMenuTrigger asChild>
-          <Button variant="outline" size="sm" className="gap-2">
+          <Button 
+            variant="outline" 
+            size="sm" 
+            className="gap-2"
+            data-testid="button-workspace-selector"
+          >
             <FolderTree className="h-4 w-4" />
             {currentWorkspaceName}
           </Button>
@@ -122,36 +131,45 @@ export function WorkspaceSelector({ currentWorkspaceName }: WorkspaceSelectorPro
         <DropdownMenuContent className="w-56">
           <DropdownMenuLabel>Workspaces</DropdownMenuLabel>
           <DropdownMenuSeparator />
-          {workspaces.map((workspace) => (
-            <DropdownMenuItem
-              key={workspace.id}
-              className="flex items-center justify-between cursor-pointer"
-            >
-              <span
-                className="flex-1"
-                onClick={() => handleSwitchWorkspace(workspace.id)}
+          {workspaces.map((workspace) => {
+            const isCurrentWorkspace = workspace.name === currentWorkspaceName;
+            return (
+              <DropdownMenuItem
+                key={workspace.id}
+                className="flex items-center justify-between cursor-pointer"
+                onClick={() => handleSwitchWorkspace(workspace.id, workspace.name)}
+                data-testid={`workspace-item-${workspace.id}`}
               >
-                {workspace.name}
-              </span>
-              {workspaces.length > 1 && workspace.name !== currentWorkspaceName && (
-                <Button
-                  size="icon"
-                  variant="ghost"
-                  className="h-6 w-6"
-                  onClick={(e) => {
-                    e.stopPropagation();
-                    handleDeleteWorkspace(workspace.id);
-                  }}
-                >
-                  <Trash2 className="h-3 w-3" />
-                </Button>
-              )}
-            </DropdownMenuItem>
-          ))}
+                <div className="flex items-center gap-2 flex-1">
+                  {isCurrentWorkspace && (
+                    <Check className="h-4 w-4 text-primary" data-testid="icon-current-workspace" />
+                  )}
+                  <span className={isCurrentWorkspace ? "font-medium" : ""}>
+                    {workspace.name}
+                  </span>
+                </div>
+                {workspaces.length > 1 && !isCurrentWorkspace && (
+                  <Button
+                    size="icon"
+                    variant="ghost"
+                    className="h-6 w-6"
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      handleDeleteWorkspace(workspace.id);
+                    }}
+                    data-testid={`button-delete-workspace-${workspace.id}`}
+                  >
+                    <Trash2 className="h-3 w-3" />
+                  </Button>
+                )}
+              </DropdownMenuItem>
+            );
+          })}
           <DropdownMenuSeparator />
           <DropdownMenuItem
             onClick={() => setCreateDialogOpen(true)}
             className="cursor-pointer"
+            data-testid="button-new-workspace"
           >
             <Plus className="h-4 w-4 mr-2" />
             New Workspace
@@ -180,14 +198,24 @@ export function WorkspaceSelector({ currentWorkspaceName }: WorkspaceSelectorPro
                     handleCreateWorkspace();
                   }
                 }}
+                data-testid="input-workspace-name"
               />
             </div>
           </div>
           <DialogFooter>
-            <Button variant="outline" onClick={() => setCreateDialogOpen(false)}>
+            <Button 
+              variant="outline" 
+              onClick={() => setCreateDialogOpen(false)}
+              data-testid="button-cancel-workspace"
+            >
               Cancel
             </Button>
-            <Button onClick={handleCreateWorkspace}>Create</Button>
+            <Button 
+              onClick={handleCreateWorkspace}
+              data-testid="button-create-workspace"
+            >
+              Create
+            </Button>
           </DialogFooter>
         </DialogContent>
       </Dialog>
