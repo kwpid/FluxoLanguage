@@ -76,7 +76,13 @@ The app is configured to listen on port 5000 by default. Render will automatical
 
 ## Troubleshooting
 
-### Build Fails with "Cannot find module"
+### Build Fails with "Cannot find module @tailwindcss/typography"
+
+**Fixed!** This was caused by a version conflict between Tailwind CSS v3 and v4. The `@tailwindcss/vite` package (v4) was conflicting with the main `tailwindcss` package (v3).
+
+**Solution:** Removed `@tailwindcss/vite` from dependencies. The project now uses only Tailwind CSS v3.
+
+### Build Fails with "Cannot find module" for @replit packages
 
 If you see errors about missing `@replit/*` packages:
 
