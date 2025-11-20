@@ -20,72 +20,86 @@ import {
 } from "@shared/schema";
 
 export async function registerRoutes(app: Express): Promise<Server> {
-  app.get('/api/workspace', async (req, res) => {
+  app.get('/api/workspace', optionalAuth, async (req, res) => {
     try {
-      const workspace = await storage.getWorkspace();
+      const authReq = req as AuthRequest;
+      const userStorage = getStorage(authReq.userId, authReq.accessToken);
+      const workspace = await userStorage.getWorkspace();
       res.json(workspace);
     } catch (error) {
       res.status(500).json({ error: 'Failed to get workspace' });
     }
   });
 
-  app.get('/api/workspaces', async (req, res) => {
+  app.get('/api/workspaces', optionalAuth, async (req, res) => {
     try {
-      const workspaces = await storage.getWorkspaceList();
+      const authReq = req as AuthRequest;
+      const userStorage = getStorage(authReq.userId, authReq.accessToken);
+      const workspaces = await userStorage.getWorkspaceList();
       res.json(workspaces);
     } catch (error) {
       res.status(500).json({ error: 'Failed to get workspaces' });
     }
   });
 
-  app.post('/api/workspaces/create', async (req, res) => {
+  app.post('/api/workspaces/create', optionalAuth, async (req, res) => {
     try {
+      const authReq = req as AuthRequest;
+      const userStorage = getStorage(authReq.userId, authReq.accessToken);
       const data = createWorkspaceRequestSchema.parse(req.body);
-      const workspace = await storage.createWorkspace(data.name);
+      const workspace = await userStorage.createWorkspace(data.name);
       res.json(workspace);
     } catch (error) {
       res.status(400).json({ error: 'Failed to create workspace' });
     }
   });
 
-  app.post('/api/workspaces/switch', async (req, res) => {
+  app.post('/api/workspaces/switch', optionalAuth, async (req, res) => {
     try {
+      const authReq = req as AuthRequest;
+      const userStorage = getStorage(authReq.userId, authReq.accessToken);
       const { workspaceId } = req.body;
-      await storage.switchWorkspace(workspaceId);
-      const workspace = await storage.getWorkspace();
+      await userStorage.switchWorkspace(workspaceId);
+      const workspace = await userStorage.getWorkspace();
       res.json(workspace);
     } catch (error: any) {
       res.status(400).json({ error: error.message || 'Failed to switch workspace' });
     }
   });
 
-  app.delete('/api/workspaces/:workspaceId', async (req, res) => {
+  app.delete('/api/workspaces/:workspaceId', optionalAuth, async (req, res) => {
     try {
+      const authReq = req as AuthRequest;
+      const userStorage = getStorage(authReq.userId, authReq.accessToken);
       const { workspaceId } = req.params;
-      await storage.deleteWorkspace(workspaceId);
+      await userStorage.deleteWorkspace(workspaceId);
       res.json({ success: true });
     } catch (error: any) {
       res.status(400).json({ error: error.message || 'Failed to delete workspace' });
     }
   });
 
-  app.get('/api/files/tree', async (req, res) => {
+  app.get('/api/files/tree', optionalAuth, async (req, res) => {
     try {
-      const fileTree = await storage.getFileTree();
+      const authReq = req as AuthRequest;
+      const userStorage = getStorage(authReq.userId, authReq.accessToken);
+      const fileTree = await userStorage.getFileTree();
       res.json(fileTree);
     } catch (error) {
       res.status(500).json({ error: 'Failed to get file tree' });
     }
   });
 
-  app.get('/api/files/content', async (req, res) => {
+  app.get('/api/files/content', optionalAuth, async (req, res) => {
     try {
+      const authReq = req as AuthRequest;
+      const userStorage = getStorage(authReq.userId, authReq.accessToken);
       const path = req.query.path as string;
       if (!path) {
         return res.status(400).json({ error: 'Path is required' });
       }
 
-      const content = await storage.getFileContent(path);
+      const content = await userStorage.getFileContent(path);
       if (content === undefined) {
         return res.status(404).json({ error: 'File not found' });
       }
@@ -96,10 +110,12 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
-  app.post('/api/files/create', async (req, res) => {
+  app.post('/api/files/create', optionalAuth, async (req, res) => {
     try {
+      const authReq = req as AuthRequest;
+      const userStorage = getStorage(authReq.userId, authReq.accessToken);
       const data = createFileRequestSchema.parse(req.body);
-      const newNode = await storage.createFile(
+      const newNode = await userStorage.createFile(
         data.parentPath,
         data.name,
         data.type,
@@ -111,40 +127,48 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
-  app.post('/api/files/save', async (req, res) => {
+  app.post('/api/files/save', optionalAuth, async (req, res) => {
     try {
+      const authReq = req as AuthRequest;
+      const userStorage = getStorage(authReq.userId, authReq.accessToken);
       const data = updateFileRequestSchema.parse(req.body);
-      await storage.updateFile(data.path, data.content);
+      await userStorage.updateFile(data.path, data.content);
       res.json({ success: true });
     } catch (error) {
       res.status(400).json({ error: 'Failed to save file' });
     }
   });
 
-  app.post('/api/files/rename', async (req, res) => {
+  app.post('/api/files/rename', optionalAuth, async (req, res) => {
     try {
+      const authReq = req as AuthRequest;
+      const userStorage = getStorage(authReq.userId, authReq.accessToken);
       const data = renameFileRequestSchema.parse(req.body);
-      await storage.renameFile(data.oldPath, data.newName);
+      await userStorage.renameFile(data.oldPath, data.newName);
       res.json({ success: true });
     } catch (error) {
       res.status(400).json({ error: 'Failed to rename file' });
     }
   });
 
-  app.post('/api/files/delete', async (req, res) => {
+  app.post('/api/files/delete', optionalAuth, async (req, res) => {
     try {
+      const authReq = req as AuthRequest;
+      const userStorage = getStorage(authReq.userId, authReq.accessToken);
       const data = deleteFileRequestSchema.parse(req.body);
-      await storage.deleteFile(data.path);
+      await userStorage.deleteFile(data.path);
       res.json({ success: true });
     } catch (error) {
       res.status(400).json({ error: 'Failed to delete file' });
     }
   });
 
-  app.post('/api/files/move', async (req, res) => {
+  app.post('/api/files/move', optionalAuth, async (req, res) => {
     try {
+      const authReq = req as AuthRequest;
+      const userStorage = getStorage(authReq.userId, authReq.accessToken);
       const data = moveFileRequestSchema.parse(req.body);
-      await storage.moveFile(data.sourcePath, data.targetPath);
+      await userStorage.moveFile(data.sourcePath, data.targetPath);
       res.json({ success: true });
     } catch (error: any) {
       res.status(400).json({ error: error.message || 'Failed to move file' });
@@ -166,8 +190,10 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
-  app.post('/api/execute-workspace', async (req, res) => {
+  app.post('/api/execute-workspace', optionalAuth, async (req, res) => {
     try {
+      const authReq = req as AuthRequest;
+      const userStorage = getStorage(authReq.userId, authReq.accessToken);
       const data = executeWorkspaceRequestSchema.parse(req.body);
       
       // Sort files: modules (.fxm) first, then scripts (.fxo)
@@ -177,7 +203,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
       
       // Store all files temporarily in storage so imports can find them
       for (const file of data.files) {
-        const fileContent = await storage.getFileContent(file.path);
+        const fileContent = await userStorage.getFileContent(file.path);
         if (fileContent === undefined) {
           // File doesn't exist, create it
           const fileName = file.path.substring(file.path.lastIndexOf('/') + 1);
@@ -189,20 +215,20 @@ export async function registerRoutes(app: Express): Promise<Server> {
             let currentPath = '';
             for (const part of parentParts) {
               const folderPath = currentPath === '' ? `/${part}` : `${currentPath}/${part}`;
-              const folderContent = await storage.getFileContent(folderPath);
+              const folderContent = await userStorage.getFileContent(folderPath);
               if (folderContent === undefined) {
                 // Create folder
                 const folderParent = currentPath === '' ? '/' : currentPath;
-                await storage.createFile(folderParent, part, 'folder');
+                await userStorage.createFile(folderParent, part, 'folder');
               }
               currentPath = folderPath;
             }
           }
           
-          await storage.createFile(parentPath, fileName, 'file', file.code);
+          await userStorage.createFile(parentPath, fileName, 'file', file.code);
         } else {
           // File exists, update it
-          await storage.updateFile(file.path, file.code);
+          await userStorage.updateFile(file.path, file.code);
         }
       }
       
@@ -239,27 +265,33 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
-  app.post('/api/workspace/state', async (req, res) => {
+  app.post('/api/workspace/state', optionalAuth, async (req, res) => {
     try {
+      const authReq = req as AuthRequest;
+      const userStorage = getStorage(authReq.userId, authReq.accessToken);
       const { openTabs, activeTab } = req.body;
-      await storage.updateWorkspaceState(openTabs || [], activeTab);
+      await userStorage.updateWorkspaceState(openTabs || [], activeTab);
       res.json({ success: true });
     } catch (error) {
       res.status(400).json({ error: 'Failed to update workspace state' });
     }
   });
 
-  app.get('/api/extensions', async (req, res) => {
+  app.get('/api/extensions', optionalAuth, async (req, res) => {
     try {
-      const extensions = await storage.getExtensions();
+      const authReq = req as AuthRequest;
+      const userStorage = getStorage(authReq.userId, authReq.accessToken);
+      const extensions = await userStorage.getExtensions();
       res.json(extensions);
     } catch (error) {
       res.status(500).json({ error: 'Failed to get extensions' });
     }
   });
 
-  app.post('/api/extensions/download', async (req, res) => {
+  app.post('/api/extensions/download', optionalAuth, async (req, res) => {
     try {
+      const authReq = req as AuthRequest;
+      const userStorage = getStorage(authReq.userId, authReq.accessToken);
       const data = downloadExtensionRequestSchema.parse(req.body);
       
       // Get extension metadata from available extensions
@@ -285,24 +317,26 @@ export async function registerRoutes(app: Express): Promise<Server> {
         isInstalled: false,
       };
       
-      await storage.downloadExtension(extension);
+      await userStorage.downloadExtension(extension);
       res.json(extension);
     } catch (error: any) {
       res.status(400).json({ error: error.message || 'Failed to download extension' });
     }
   });
 
-  app.post('/api/extensions/install', async (req, res) => {
+  app.post('/api/extensions/install', optionalAuth, async (req, res) => {
     try {
+      const authReq = req as AuthRequest;
+      const userStorage = getStorage(authReq.userId, authReq.accessToken);
       const data = installExtensionRequestSchema.parse(req.body);
-      const extension = await storage.installExtension(data.id);
+      const extension = await userStorage.installExtension(data.id);
       
       // If HTML Supporter extension, create template files
       if (data.id === 'html-supporter') {
         try {
           // Create HTML templates folder first (ignore if it already exists)
           try {
-            await storage.createFile('/', 'html-templates', 'folder');
+            await userStorage.createFile('/', 'html-templates', 'folder');
           } catch (folderError: any) {
             // Folder might already exist, that's OK
             if (!folderError.message?.includes('already exists')) {
@@ -520,9 +554,9 @@ See \`example.html\` and \`app.fxm\` for a working example.
           
           for (const file of files) {
             const filePath = `/html-templates/${file.name}`;
-            const exists = await storage.getFileContent(filePath);
+            const exists = await userStorage.getFileContent(filePath);
             if (exists === undefined) {
-              await storage.createFile('/html-templates', file.name, 'file', file.content);
+              await userStorage.createFile('/html-templates', file.name, 'file', file.content);
             }
           }
         } catch (fileError) {
@@ -537,29 +571,35 @@ See \`example.html\` and \`app.fxm\` for a working example.
     }
   });
 
-  app.post('/api/extensions/uninstall', async (req, res) => {
+  app.post('/api/extensions/uninstall', optionalAuth, async (req, res) => {
     try {
+      const authReq = req as AuthRequest;
+      const userStorage = getStorage(authReq.userId, authReq.accessToken);
       const data = uninstallExtensionRequestSchema.parse(req.body);
-      await storage.uninstallExtension(data.id);
+      await userStorage.uninstallExtension(data.id);
       res.json({ success: true });
     } catch (error: any) {
       res.status(400).json({ error: error.message || 'Failed to uninstall extension' });
     }
   });
 
-  app.post('/api/extensions/toggle', async (req, res) => {
+  app.post('/api/extensions/toggle', optionalAuth, async (req, res) => {
     try {
+      const authReq = req as AuthRequest;
+      const userStorage = getStorage(authReq.userId, authReq.accessToken);
       const data = toggleExtensionRequestSchema.parse(req.body);
-      await storage.toggleExtension(data.id, data.enabled);
+      await userStorage.toggleExtension(data.id, data.enabled);
       res.json({ success: true });
     } catch (error: any) {
       res.status(400).json({ error: error.message || 'Failed to toggle extension' });
     }
   });
 
-  app.get('/api/symbols', async (req, res) => {
+  app.get('/api/symbols', optionalAuth, async (req, res) => {
     try {
-      const fileTree = await storage.getFileTree();
+      const authReq = req as AuthRequest;
+      const userStorage = getStorage(authReq.userId, authReq.accessToken);
+      const fileTree = await userStorage.getFileTree();
       const symbols: { variables: string[], functions: string[] } = {
         variables: [],
         functions: []
@@ -568,7 +608,7 @@ See \`example.html\` and \`app.fxm\` for a working example.
       const extractSymbols = async (nodes: any[]) => {
         for (const node of nodes) {
           if (node.type === 'file' && (node.extension === '.fxo' || node.extension === '.fxm')) {
-            const content = await storage.getFileContent(node.path);
+            const content = await userStorage.getFileContent(node.path);
             if (content) {
               const varRegex = /local\s+(\w+)\s*=/g;
               let varMatch;

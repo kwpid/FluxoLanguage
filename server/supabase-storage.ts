@@ -1,18 +1,19 @@
-// @ts-nocheck
+// @ts-nocheck - TODO: Fix TypeScript inference issues with Supabase Database types
 import { type FileNode, type WorkspaceState, type WorkspaceListItem, type Extension } from "@shared/schema";
-import { createClient } from '@supabase/supabase-js';
+import { createClient, type SupabaseClient } from '@supabase/supabase-js';
+import type { Database } from '@shared/database.types';
 import type { IStorage } from "./storage";
 
 export class SupabaseStorage implements IStorage {
   private userId: string;
-  private supabase: ReturnType<typeof createClient>;
+  private supabase: SupabaseClient<Database>;
   private currentWorkspaceId: string | null = null;
 
   constructor(userId: string, accessToken?: string) {
     this.userId = userId;
     
     if (accessToken) {
-      this.supabase = createClient(
+      this.supabase = createClient<Database>(
         process.env.SUPABASE_URL!,
         process.env.SUPABASE_ANON_KEY!,
         {
@@ -24,7 +25,7 @@ export class SupabaseStorage implements IStorage {
         }
       );
     } else {
-      this.supabase = createClient(
+      this.supabase = createClient<Database>(
         process.env.SUPABASE_URL!,
         process.env.SUPABASE_ANON_KEY!
       );
