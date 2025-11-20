@@ -452,15 +452,19 @@ export class FluxoInterpreter {
           pos++;
         }
       } else if (moduleBody.substring(pos).startsWith('export {')) {
-        // NEW: Handle export { var1, var2 } syntax
+        // Handle export { var1, var2, func1 } syntax - supports both variables and functions
         const exportMatch = moduleBody.substring(pos).match(/export\s*\{([^}]+)\}/);
         if (exportMatch) {
           const exportList = exportMatch[1].split(',').map(name => name.trim()).filter(n => n);
           exportList.forEach(varName => {
-            if (moduleObj.variables.has(varName)) {
+            // Check if already exported via export function (don't duplicate)
+            if (moduleObj.exports.has(varName)) {
+              // Already exported, keep it
+            } else if (moduleObj.variables.has(varName)) {
+              // Export it - works for both variables and functions
               moduleObj.exports.set(varName, moduleObj.variables.get(varName));
             } else {
-              this.addOutput('warning', `Variable '${varName}' not found in module '${moduleName}' for export`);
+              this.addOutput('warning', `Variable or function '${varName}' not found in module '${moduleName}' for export`);
             }
           });
           pos += exportMatch[0].length;
@@ -533,7 +537,11 @@ export class FluxoInterpreter {
           const endPos = this.findMatchingBrace(body, bracePos);
           const funcBody = body.substring(bracePos + 1, endPos - 1);
 
-          moduleObj.variables.set(funcName, { params, body: funcBody, hasRestParam });
+          const funcDef = { params, body: funcBody, hasRestParam };
+          // Store functions in moduleObj.variables so they can be exported later with export {}
+          moduleObj.variables.set(funcName, funcDef);
+          // Also register in context.functions so they can be called within the module
+          this.context.functions.set(funcName, funcDef);
           pos = endPos;
         } else {
           pos++;
