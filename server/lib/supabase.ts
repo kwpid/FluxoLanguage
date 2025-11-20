@@ -1,39 +1,32 @@
 import { createClient } from '@supabase/supabase-js';
 import type { Database } from '../../shared/database.types';
 
-function getSupabaseUrl(): string {
-  if (!process.env.SUPABASE_URL) {
-    throw new Error('Missing SUPABASE_URL environment variable');
-  }
-  return process.env.SUPABASE_URL;
-}
+const supabaseUrl = process.env.SUPABASE_URL;
+const supabaseAnonKey = process.env.SUPABASE_ANON_KEY;
 
-function getSupabaseAnonKey(): string {
-  if (!process.env.SUPABASE_ANON_KEY) {
-    throw new Error('Missing SUPABASE_ANON_KEY environment variable');
-  }
-  return process.env.SUPABASE_ANON_KEY;
+export const isSupabaseConfigured = !!(supabaseUrl && supabaseAnonKey);
+
+if (!isSupabaseConfigured) {
+  console.warn('Supabase not configured on server - authentication features will be disabled');
 }
 
 let _supabase: ReturnType<typeof createClient<Database>> | null = null;
 
-export const supabase = new Proxy({} as ReturnType<typeof createClient<Database>>, {
-  get(_target, prop) {
-    if (!_supabase) {
-      _supabase = createClient<Database>(
-        getSupabaseUrl(),
-        getSupabaseAnonKey()
-      );
-    }
-    return (_supabase as any)[prop];
-  }
-});
+if (isSupabaseConfigured) {
+  _supabase = createClient<Database>(supabaseUrl!, supabaseAnonKey!);
+}
+
+export const supabase = _supabase;
 
 export function createServerClient(accessToken?: string) {
+  if (!isSupabaseConfigured) {
+    return null;
+  }
+  
   if (accessToken) {
     return createClient<Database>(
-      getSupabaseUrl(),
-      getSupabaseAnonKey(),
+      supabaseUrl!,
+      supabaseAnonKey!,
       {
         global: {
           headers: {
