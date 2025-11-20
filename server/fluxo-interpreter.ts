@@ -1071,7 +1071,17 @@ export class FluxoInterpreter {
       const replaced = expr.replace(/(\w+)/g, (match) => {
         if (this.context.variables.has(match)) {
           const val = this.context.variables.get(match);
-          return typeof val === 'number' ? String(val) : `"${val}"`;
+          if (typeof val === 'number') {
+            return String(val);
+          } else if (typeof val === 'boolean') {
+            return String(val);  // 'true' or 'false' as unquoted strings
+          } else if (val === null) {
+            return 'null';
+          } else if (val === undefined) {
+            return 'undefined';
+          } else {
+            return `"${val}"`;  // Only strings get quotes
+          }
         }
         return match;
       });
