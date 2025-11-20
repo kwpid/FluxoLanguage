@@ -105,6 +105,12 @@ export function OutputPanel({ output, onClear, activeFile, fileContents = {}, on
   };
   
   useEffect(() => {
+    // Preview only works when html-supporter extension is enabled
+    if (!isHtmlSupporterEnabled) {
+      setPreviewHtml('');
+      return;
+    }
+    
     // Always show index.html in preview if it exists, regardless of active file
     const indexHtmlPath = '/index.html';
     
@@ -132,7 +138,7 @@ export function OutputPanel({ output, onClear, activeFile, fileContents = {}, on
           setActiveTab('preview');
           hasAutoSwitchedToPreview.current = true;
         }
-      } else if (isHtmlSupporterEnabled && isFluxoFile) {
+      } else if (isFluxoFile) {
         const wrappedHtml = wrapFluxoInHtml(fileContents[activeFile], activeFile);
         setPreviewHtml(wrappedHtml);
         
@@ -183,11 +189,11 @@ export function OutputPanel({ output, onClear, activeFile, fileContents = {}, on
     return () => window.removeEventListener('message', handleMessage);
   }, [activeFile, fileContents]);
   
-  // Preview is available if index.html exists, or if active file is previewable
+  // Preview is only available when html-supporter extension is enabled
   const indexHtmlExists = !!fileContents['/index.html'];
   const isHtmlFile = activeFile?.endsWith('.html') || activeFile?.endsWith('.htm');
   const isFluxoFile = activeFile?.endsWith('.fxo') || activeFile?.endsWith('.fxm');
-  const canPreview = indexHtmlExists || isHtmlFile || (isHtmlSupporterEnabled && isFluxoFile);
+  const canPreview = isHtmlSupporterEnabled && (indexHtmlExists || isHtmlFile || isFluxoFile);
   
   const formatTime = (timestamp: number) => {
     const date = new Date(timestamp);
@@ -320,11 +326,15 @@ export function OutputPanel({ output, onClear, activeFile, fileContents = {}, on
             <div className="h-full flex items-center justify-center text-muted-foreground p-4">
               <div className="text-center">
                 <Eye className="h-8 w-8 mx-auto mb-2 opacity-50" />
-                <p className="text-sm">No previewable file selected</p>
+                <p className="text-sm">
+                  {isHtmlSupporterEnabled 
+                    ? "No previewable file selected" 
+                    : "HTMLSupporter extension required"}
+                </p>
                 <p className="text-xs mt-1">
                   {isHtmlSupporterEnabled 
                     ? "Open an HTML or Fluxo file to see the preview" 
-                    : "Open an HTML file to see the preview"}
+                    : "Enable HTMLSupporter extension to use the preview pane"}
                 </p>
               </div>
             </div>
