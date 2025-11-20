@@ -215,11 +215,27 @@ export class FluxoInterpreter {
   }
 
   private async parseImportFrom(code: string, pos: number): Promise<number> {
-    // NEW: Handle import from "fileName" { var1, var2 } syntax
-    const match = code.substring(pos).match(/import\s+from\s+"([^"]+)"\s*\{([^}]+)\}/);
+    // Support both syntaxes:
+    // 1. import from "fileName" { var1, var2 } (original)
+    // 2. import { var1, var2 } from "fileName" (ES6-style)
+    
+    const oldStyleMatch = code.substring(pos).match(/import\s+from\s+"([^"]+)"\s*\{([^}]+)\}/);
+    const es6StyleMatch = code.substring(pos).match(/import\s*\{([^}]+)\}\s+from\s+"([^"]+)"/);
+    
+    const match = es6StyleMatch || oldStyleMatch;
     if (match) {
-      const modulePath = match[1];
-      const importList = match[2].split(',').map(name => name.trim()).filter(n => n);
+      let modulePath: string;
+      let importList: string[];
+      
+      if (es6StyleMatch) {
+        // ES6-style: import { var1, var2 } from "fileName"
+        importList = match[1].split(',').map(name => name.trim()).filter(n => n);
+        modulePath = match[2];
+      } else {
+        // Old-style: import from "fileName" { var1, var2 }
+        modulePath = match[1];
+        importList = match[2].split(',').map(name => name.trim()).filter(n => n);
+      }
       
       const fullPath = modulePath.startsWith('/') ? modulePath : `/${modulePath}`;
       const moduleFilePath = fullPath.endsWith('.fxm') ? fullPath : `${fullPath}.fxm`;
