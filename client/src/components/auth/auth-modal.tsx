@@ -3,10 +3,8 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } f
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
-import { Separator } from '@/components/ui/separator';
 import { useToast } from '@/hooks/use-toast';
 import { supabase } from '@/lib/supabase';
-import { SiGoogle } from 'react-icons/si';
 import { Loader2 } from 'lucide-react';
 
 interface AuthModalProps {
@@ -63,26 +61,6 @@ export function AuthModal({ open, onOpenChange }: AuthModalProps) {
     }
   };
 
-  const handleGoogleAuth = async () => {
-    setLoading(true);
-    try {
-      const { error } = await supabase.auth.signInWithOAuth({
-        provider: 'google',
-        options: {
-          redirectTo: `${window.location.origin}`,
-        },
-      });
-      if (error) throw error;
-    } catch (error: any) {
-      toast({
-        title: 'Error',
-        description: error.message,
-        variant: 'destructive',
-      });
-      setLoading(false);
-    }
-  };
-
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent className="sm:max-w-md" data-testid="dialog-auth">
@@ -98,30 +76,6 @@ export function AuthModal({ open, onOpenChange }: AuthModalProps) {
         </DialogHeader>
 
         <div className="space-y-4">
-          <Button
-            variant="outline"
-            className="w-full"
-            onClick={handleGoogleAuth}
-            disabled={loading}
-            data-testid="button-google-auth"
-          >
-            {loading ? (
-              <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-            ) : (
-              <SiGoogle className="mr-2 h-4 w-4" />
-            )}
-            Continue with Google
-          </Button>
-
-          <div className="relative">
-            <div className="absolute inset-0 flex items-center">
-              <Separator />
-            </div>
-            <div className="relative flex justify-center text-xs uppercase">
-              <span className="bg-background px-2 text-muted-foreground">Or continue with email</span>
-            </div>
-          </div>
-
           <form onSubmit={handleEmailAuth} className="space-y-4">
             <div className="space-y-2">
               <Label htmlFor="email">Email</Label>
