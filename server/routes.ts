@@ -32,6 +32,51 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
+  app.get('/api/workspace/symbols', optionalAuth, async (req, res) => {
+    try {
+      const authReq = req as AuthRequest;
+      const userStorage = getStorage(authReq.userId, authReq.accessToken);
+      const workspace = await userStorage.getWorkspace();
+      
+      const variables: string[] = [];
+      const functions: string[] = [];
+      
+      const extractSymbols = (content: string) => {
+        const varRegex = /(?:local|const|let|var)\s+([a-zA-Z_]\w*)/g;
+        const funcRegex = /function\s+([a-zA-Z_]\w*)\s*\(/g;
+        
+        let match;
+        while ((match = varRegex.exec(content)) !== null) {
+          if (!variables.includes(match[1])) {
+            variables.push(match[1]);
+          }
+        }
+        
+        while ((match = funcRegex.exec(content)) !== null) {
+          if (!functions.includes(match[1])) {
+            functions.push(match[1]);
+          }
+        }
+      };
+      
+      const processNode = (node: any) => {
+        if (node.type === 'file' && node.path.endsWith('.fxm') && node.content) {
+          extractSymbols(node.content);
+        }
+        if (node.children) {
+          node.children.forEach(processNode);
+        }
+      };
+      
+      workspace.fileTree.forEach(processNode);
+      
+      res.json({ variables, functions });
+    } catch (error) {
+      console.error('Failed to get workspace symbols:', error);
+      res.json({ variables: [], functions: [] });
+    }
+  });
+
   app.get('/api/workspaces', optionalAuth, async (req, res) => {
     try {
       const authReq = req as AuthRequest;
