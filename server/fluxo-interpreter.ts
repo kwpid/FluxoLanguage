@@ -120,7 +120,7 @@ export class FluxoInterpreter {
         if (!entry.startsWith('/')) {
           resolvedPath = `${htmlFileDir}/${entry}`;
         }
-        return `import("${resolvedPath}")`;
+        return `require("${resolvedPath}")`;
       }).join('\n');
       return importStatements;
     }
@@ -157,12 +157,14 @@ export class FluxoInterpreter {
 
       if (code.substring(pos).startsWith('import from ')) {
         pos = await this.parseImportFrom(code, pos);
-      } else if (code.substring(pos).startsWith('import(')) {
-        pos = await this.parseImport(code, pos);
+      } else if (code.substring(pos).startsWith('require(')) {
+        pos = await this.parseRequire(code, pos);
       } else if (code.substring(pos).startsWith('module folder ')) {
         pos = await this.parseModuleFolder(code, pos);
       } else if (code.substring(pos).startsWith('module ')) {
         pos = await this.parseModule(code, pos);
+      } else if (code.substring(pos).startsWith('export function ')) {
+        pos = this.parseFunctionDeclaration(code, pos);
       } else if (code.substring(pos).startsWith('function ')) {
         pos = this.parseFunctionDeclaration(code, pos);
       } else if (code.substring(pos).startsWith('local ')) {
@@ -284,8 +286,8 @@ export class FluxoInterpreter {
     return pos + 1;
   }
 
-  private async parseImport(code: string, pos: number): Promise<number> {
-    const match = code.substring(pos).match(/import\("([^"]+)"\)/);
+  private async parseRequire(code: string, pos: number): Promise<number> {
+    const match = code.substring(pos).match(/require\("([^"]+)"\)/);
     if (match) {
       const modulePath = match[1];
       const fullPath = modulePath.startsWith('/') ? modulePath : `/${modulePath}`;
@@ -543,7 +545,7 @@ export class FluxoInterpreter {
   }
 
   private parseFunctionDeclaration(code: string, pos: number): number {
-    const match = code.substring(pos).match(/function\s+(\w+)\s*\(([^)]*)\)\s*\{/);
+    const match = code.substring(pos).match(/(?:export\s+)?function\s+(\w+)\s*\(([^)]*)\)\s*\{/);
     if (!match) return pos + 1;
 
     const funcName = match[1];
