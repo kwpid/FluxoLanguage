@@ -244,6 +244,9 @@ console.log("Explore the scripts/ and modules/ folders to learn more")
     if (!data) {
       throw new Error('Workspace not found or access denied');
     }
+
+    // Actually switch to the new workspace
+    this.currentWorkspaceId = workspaceId;
   }
 
   async deleteWorkspace(workspaceId: string): Promise<void> {
