@@ -5,6 +5,7 @@ import { getStorage } from "./storage-factory";
 import { FluxoInterpreter } from "./fluxo-interpreter";
 import { optionalAuth, type AuthRequest } from "./middleware/auth";
 import { extensionsCatalog } from "./extensions-catalog";
+import JSZip from "jszip";
 import {
   createFileRequestSchema,
   updateFileRequestSchema,
@@ -110,6 +111,48 @@ export async function registerRoutes(app: Express): Promise<Server> {
       res.json(workspace);
     } catch (error: any) {
       res.status(400).json({ error: error.message || 'Failed to switch workspace' });
+    }
+  });
+
+  app.get('/api/workspaces/download', optionalAuth, async (req, res) => {
+    try {
+      const authReq = req as AuthRequest;
+      const userStorage = getStorage(authReq.userId, authReq.accessToken);
+      const workspace = await userStorage.getWorkspace();
+      
+      const zip = new JSZip();
+      
+      const addFilesToZip = async (nodes: any[], currentPath: string = '') => {
+        for (const node of nodes) {
+          if (node.type === 'file' && node.content !== undefined) {
+            const fileName = node.name;
+            const filePath = currentPath ? `${currentPath}/${fileName}` : fileName;
+            let fileContent = node.content;
+            let finalFileName = fileName;
+            
+            if (fileName.endsWith('.fxm') || fileName.endsWith('.fxo')) {
+              finalFileName = fileName.replace(/\.(fxm|fxo)$/, '.txt');
+            }
+            
+            const finalPath = currentPath ? `${currentPath}/${finalFileName}` : finalFileName;
+            zip.file(finalPath, fileContent);
+          } else if (node.type === 'folder' && node.children) {
+            const folderPath = currentPath ? `${currentPath}/${node.name}` : node.name;
+            await addFilesToZip(node.children, folderPath);
+          }
+        }
+      };
+      
+      await addFilesToZip(workspace.fileTree);
+      
+      const zipBuffer = await zip.generateAsync({ type: 'nodebuffer' });
+      
+      const sanitizedName = workspace.name.replace(/[^a-zA-Z0-9-_]/g, '_');
+      res.setHeader('Content-Type', 'application/zip');
+      res.setHeader('Content-Disposition', `attachment; filename="${sanitizedName}_workspace.zip"`);
+      res.send(zipBuffer);
+    } catch (error: any) {
+      res.status(400).json({ error: error.message || 'Failed to download workspace' });
     }
   });
 

@@ -21,7 +21,7 @@ import {
 } from "@/components/ui/dialog";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import { FolderTree, Plus, Trash2, Check } from "lucide-react";
+import { FolderTree, Plus, Trash2, Check, Download } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 
 interface WorkspaceSelectorProps {
@@ -114,6 +114,43 @@ export function WorkspaceSelector({ currentWorkspaceName }: WorkspaceSelectorPro
     }
   };
 
+  const handleDownloadWorkspace = async () => {
+    try {
+      const response = await fetch('/api/workspaces/download', {
+        credentials: 'include',
+      });
+      
+      if (!response.ok) {
+        throw new Error('Download failed');
+      }
+      
+      const blob = await response.blob();
+      const url = window.URL.createObjectURL(blob);
+      const a = document.createElement('a');
+      a.href = url;
+      const contentDisposition = response.headers.get('content-disposition');
+      const filename = contentDisposition
+        ? contentDisposition.split('filename=')[1].replace(/"/g, '')
+        : `${currentWorkspaceName}_workspace.zip`;
+      a.download = filename;
+      document.body.appendChild(a);
+      a.click();
+      window.URL.revokeObjectURL(url);
+      document.body.removeChild(a);
+      
+      toast({
+        title: "Success",
+        description: "Workspace downloaded successfully. Fluxo files (.fxm/.fxo) have been converted to .txt for compatibility.",
+      });
+    } catch (error) {
+      toast({
+        title: "Error",
+        description: "Failed to download workspace",
+        variant: "destructive",
+      });
+    }
+  };
+
   return (
     <>
       <DropdownMenu>
@@ -166,6 +203,14 @@ export function WorkspaceSelector({ currentWorkspaceName }: WorkspaceSelectorPro
             );
           })}
           <DropdownMenuSeparator />
+          <DropdownMenuItem
+            onClick={handleDownloadWorkspace}
+            className="cursor-pointer"
+            data-testid="button-download-workspace"
+          >
+            <Download className="h-4 w-4 mr-2" />
+            Download Workspace
+          </DropdownMenuItem>
           <DropdownMenuItem
             onClick={() => setCreateDialogOpen(true)}
             className="cursor-pointer"
