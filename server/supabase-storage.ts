@@ -272,6 +272,13 @@ console.log("Explore the scripts/ and modules/ folders to learn more")
       throw new Error('Cannot delete the last workspace');
     }
 
+    const { data: deletedWorkspace } = await this.supabase
+      .from('workspaces')
+      .select('is_current')
+      .eq('id', workspaceId)
+      .eq('user_id', this.userId)
+      .single();
+
     const { error: deleteError } = await this.supabase
       .from('workspaces')
       .delete()
@@ -280,13 +287,21 @@ console.log("Explore the scripts/ and modules/ folders to learn more")
 
     if (deleteError) throw deleteError;
 
-    const remainingWorkspaces = workspaces.filter(w => w.id !== workspaceId);
-    if (remainingWorkspaces.length > 0) {
-      await this.supabase
+    if (deletedWorkspace?.is_current) {
+      const { data: remainingWorkspaces } = await this.supabase
         .from('workspaces')
-        .update({ is_current: true })
-        .eq('id', remainingWorkspaces[0].id)
-        .eq('user_id', this.userId);
+        .select('id')
+        .eq('user_id', this.userId)
+        .order('created_at', { ascending: true })
+        .limit(1);
+
+      if (remainingWorkspaces && remainingWorkspaces.length > 0) {
+        await this.supabase
+          .from('workspaces')
+          .update({ is_current: true })
+          .eq('id', remainingWorkspaces[0].id)
+          .eq('user_id', this.userId);
+      }
     }
   }
 
