@@ -20,6 +20,21 @@ Fluxo IDE is a modern, browser-based integrated development environment specific
 - User workspaces and files are persisted to Supabase when authenticated
 - Falls back to in-memory storage when no authentication is configured
 
+## Recent Changes (November 21, 2025)
+
+**Import System Enhancements:**
+- **FIXED**: File opening issue where empty files would fail to open due to falsy value handling
+- **ENHANCED**: `import lib "path"` syntax now supports variable paths
+  - Example: `local myPath = "lib/utils"; import lib myPath` now works correctly
+  - Variables must resolve to string values representing valid paths
+- **ENHANCED**: `import lib "path"` syntax now supports folder imports
+  - Example: `import lib "modules"` imports all exported variables and functions from all module files in the folder
+  - All exports are merged into a single object accessible via the identifier
+  - Properly handles both .fxo and .fxm files within the folder
+- **IMPROVED**: Path normalization now checks for folders before applying file extensions
+  - Fixes issue where folder paths were incorrectly treated as files
+  - Ensures folder imports work reliably
+
 ## Recent Changes (November 20, 2025)
 
 **Authentication Updates:**
