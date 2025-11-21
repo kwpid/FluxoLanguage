@@ -1,7 +1,7 @@
 import type { Express } from "express";
 import { createServer, type Server } from "http";
 import { storage } from "./storage";
-import { getStorage } from "./storage-factory";
+import { getStorage, setCurrentWorkspace } from "./storage-factory";
 import { FluxoInterpreter } from "./fluxo-interpreter";
 import { optionalAuth, type AuthRequest } from "./middleware/auth";
 import { extensionsCatalog } from "./extensions-catalog";
@@ -107,6 +107,11 @@ export async function registerRoutes(app: Express): Promise<Server> {
       const userStorage = getStorage(authReq.userId, authReq.accessToken);
       const { workspaceId } = req.body;
       await userStorage.switchWorkspace(workspaceId);
+      
+      if (authReq.userId) {
+        setCurrentWorkspace(authReq.userId, workspaceId);
+      }
+      
       const workspace = await userStorage.getWorkspace();
       res.json(workspace);
     } catch (error: any) {
@@ -161,7 +166,16 @@ export async function registerRoutes(app: Express): Promise<Server> {
       const authReq = req as AuthRequest;
       const userStorage = getStorage(authReq.userId, authReq.accessToken);
       const { workspaceId } = req.params;
+      
       await userStorage.deleteWorkspace(workspaceId);
+      
+      if (authReq.userId) {
+        const workspaces = await userStorage.getWorkspaceList();
+        if (workspaces.length > 0) {
+          setCurrentWorkspace(authReq.userId, workspaces[0].id);
+        }
+      }
+      
       res.json({ success: true });
     } catch (error: any) {
       res.status(400).json({ error: error.message || 'Failed to delete workspace' });

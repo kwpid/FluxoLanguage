@@ -9,8 +9,9 @@ export class SupabaseStorage implements IStorage {
   private supabase: SupabaseClient<Database>;
   private currentWorkspaceId: string | null = null;
 
-  constructor(userId: string, accessToken?: string) {
+  constructor(userId: string, accessToken?: string, initialWorkspaceId?: string | null) {
     this.userId = userId;
+    this.currentWorkspaceId = initialWorkspaceId || null;
     
     if (accessToken) {
       this.supabase = createClient<Database>(
@@ -416,6 +417,27 @@ console.log("Explore the scripts/ and modules/ folders to learn more")
 
   async deleteFile(path: string): Promise<void> {
     const workspaceId = await this.getDefaultWorkspaceId();
+
+    const { data: fileToDelete } = await this.supabase
+      .from('files')
+      .select('type')
+      .eq('workspace_id', workspaceId)
+      .eq('path', path)
+      .single();
+
+    if (!fileToDelete) {
+      throw new Error('File not found');
+    }
+
+    if (fileToDelete.type === 'folder') {
+      const { error: childrenError } = await this.supabase
+        .from('files')
+        .delete()
+        .eq('workspace_id', workspaceId)
+        .like('path', `${path}/%`);
+
+      if (childrenError) throw childrenError;
+    }
 
     const { error } = await this.supabase
       .from('files')
