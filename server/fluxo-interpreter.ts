@@ -1,4 +1,4 @@
-import { type OutputMessage } from "@shared/schema";
+import { type OutputMessage, type FileNode } from "@shared/schema";
 import { randomUUID } from "crypto";
 import { storage } from "./storage";
 
@@ -482,16 +482,73 @@ export class FluxoInterpreter {
   }
 
   private async parseImportAll(code: string, pos: number): Promise<number> {
-    // New syntax: import <identifier> "path"
+    // New syntax: import <identifier> "path" or import <identifier> variableName
     // This imports ALL exports from a file/folder and assigns to the identifier
-    const match = code.substring(pos).match(/import\s+(\w+)\s+"([^"]+)"/);
+    const literalMatch = code.substring(pos).match(/import\s+(\w+)\s+"([^"]+)"/);
+    const variableMatch = code.substring(pos).match(/import\s+(\w+)\s+(\w+)/);
     
+    const match = literalMatch || variableMatch;
     if (match) {
       const identifier = match[1];
-      const modulePath = match[2];
+      let modulePath = match[2];
       
-      // Normalize the module path to handle relative imports
-      let moduleFilePath = this.normalizeModulePath(modulePath, this.currentFilePath);
+      // If it's a variable path, resolve the variable first
+      if (variableMatch && !literalMatch) {
+        const varValue = this.context.variables.get(modulePath);
+        if (typeof varValue !== 'string') {
+          throw new Error(
+            `Import path variable '${modulePath}' must be a string.\n` +
+            `Found: ${typeof varValue}`
+          );
+        }
+        modulePath = varValue;
+      }
+      
+      // First, normalize the path WITHOUT adding file extensions
+      // This allows us to check if it's a folder first
+      let fullPath = modulePath;
+      if (modulePath.startsWith('/')) {
+        fullPath = modulePath;
+      } else if (modulePath.startsWith('./') || modulePath.startsWith('../')) {
+        const lastSlash = this.currentFilePath.lastIndexOf('/');
+        const importingDir = lastSlash > 0 ? this.currentFilePath.substring(0, lastSlash) : '/';
+        if (importingDir === '/') {
+          fullPath = importingDir + modulePath;
+        } else {
+          fullPath = importingDir + '/' + modulePath;
+        }
+      } else {
+        fullPath = '/' + modulePath;
+      }
+      
+      // Normalize path: remove duplicate slashes, resolve . and ..
+      const segments = fullPath.split('/');
+      const normalized: string[] = [];
+      for (const segment of segments) {
+        if (!segment || segment === '.') continue;
+        else if (segment === '..') {
+          if (normalized.length > 0) normalized.pop();
+        } else {
+          normalized.push(segment);
+        }
+      }
+      const canonicalPath = normalized.length > 0 ? '/' + normalized.join('/') : '/';
+      
+      // Check if this is a folder (before adding extensions)
+      const fileTree = await storage.getFileTree();
+      const node = this.findNodeByPath(fileTree, canonicalPath);
+      
+      if (node && node.type === 'folder') {
+        // This is a folder import - import all exports from all files in the folder
+        return await this.importFolderExports(identifier, node, pos + match[0].length);
+      }
+      
+      // It's a file import - now add extension if needed
+      let moduleFilePath = canonicalPath;
+      if (!moduleFilePath.endsWith('.fxm') && !moduleFilePath.endsWith('.fxo')) {
+        moduleFilePath = moduleFilePath + '.fxm';
+      }
+      
       let moduleContent = await storage.getFileContent(moduleFilePath);
       
       // If not found as .fxm, try .fxo
@@ -557,6 +614,46 @@ export class FluxoInterpreter {
       return pos + match[0].length;
     }
     return pos + 1;
+  }
+  
+  private async importFolderExports(identifier: string, folder: FileNode, endPos: number): Promise<number> {
+    // Import all exports from all files in a folder
+    const allExports: any = {};
+    
+    if (folder.children) {
+      for (const file of folder.children) {
+        if (file.type === 'file' && (file.extension === '.fxo' || file.extension === '.fxm')) {
+          const content = await storage.getFileContent(file.path);
+          if (content) {
+            // Check if it's a module file
+            const moduleMatch = content.match(/module\s+(\w+)\s*\{/);
+            if (moduleMatch) {
+              const moduleName = moduleMatch[1];
+              await this.loadModule(content, file.path);
+              
+              const loadedModule = this.context.modules.get(moduleName);
+              if (loadedModule) {
+                // Add all exports from this module
+                loadedModule.exports.forEach((item, name) => {
+                  if (typeof item === 'object' && item.params !== undefined) {
+                    // It's a function
+                    allExports[name] = (...args: any[]) => {
+                      return this.executeFunction(item, args);
+                    };
+                  } else {
+                    // It's a variable - clone it
+                    allExports[name] = this.cloneValue(item);
+                  }
+                });
+              }
+            }
+          }
+        }
+      }
+    }
+    
+    this.context.variables.set(identifier, allExports);
+    return endPos;
   }
 
   private async parseRequire(code: string, pos: number): Promise<number> {

@@ -112,7 +112,7 @@ class LocalStorageService {
   getFileContent(workspaceId: string, path: string): string | null {
     const fileTree = this.getFileTree(workspaceId);
     const file = this.findFileByPath(fileTree, path);
-    return file?.content || null;
+    return file?.content ?? null;
   }
 
   saveFileContent(workspaceId: string, path: string, content: string): void {
