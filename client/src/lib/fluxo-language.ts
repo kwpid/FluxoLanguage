@@ -282,6 +282,13 @@ export function registerFluxoLanguage() {
             documentation: 'Selectively import specific variables/functions from a module',
           },
           {
+            label: 'import (all exports)',
+            kind: monaco.languages.CompletionItemKind.Keyword,
+            insertText: 'import ${1:identifier} "${2:modulePath}"',
+            insertTextRules: monaco.languages.CompletionItemInsertTextRule.InsertAsSnippet,
+            documentation: 'Import all exports from a module as an object',
+          },
+          {
             label: 'import()',
             kind: monaco.languages.CompletionItemKind.Function,
             insertText: 'import("${1:modulePath}")',

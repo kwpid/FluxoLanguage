@@ -30,14 +30,19 @@ Fluxo IDE is a modern, browser-based integrated development environment specific
 
 ## Recent Changes (November 19, 2025)
 
-**Version 1.1.0 - Enhanced Module Import/Export System:**
-- **NEW**: Module files (.fxm) can now export specific variables using `export { var1, var2 }` syntax
-- **NEW**: Selective imports with `import from "fileName" { var1, var2 }` syntax for both .fxo and .fxm files
-- Module files (.fxm) can use both `export {}` and `import from`
-- Regular scripts (.fxo) can use `import from` to selectively import variables/functions
-- `export function` continues to work as before for backward compatibility
-- Imported variables/functions are available directly without module prefix
-- Enhanced autocomplete in Monaco editor for new import/export syntax
+**Version 1.2.0 - Enhanced Module Scoping & Import System:**
+- **NEW**: `import <identifier> "path"` syntax to import all exports as an object
+  - Example: `import lib "modules/utils"` creates `lib.add()`, `lib.multiply()`, etc.
+  - Works with both files and folders
+- **FIXED**: Module variables are now properly scoped - no longer globally accessible
+  - Variables/functions in modules are only available when explicitly imported
+  - Prevents naming conflicts and improves code organization
+- **IMPROVED**: Variable exports now properly support string values and path references
+  - Can export configuration variables like `local apiUrl = "https://api.com"`
+  - Exported variables maintain their values when imported
+- Module files (.fxm) can export both functions and variables using `export { var1, var2, func1 }`
+- Selective imports with `import from "fileName" { var1, var2 }` or `import { var1 } from "fileName"`
+- Enhanced autocomplete in Monaco editor for all import syntaxes
 
 **Latest Update - HTML/Fluxo Manifest Architecture:**
 - **BREAKING CHANGE**: HTML files can no longer embed Fluxo code inline

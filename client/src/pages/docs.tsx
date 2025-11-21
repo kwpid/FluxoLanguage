@@ -368,6 +368,38 @@ console.log("Total:", total)  // Output: 30`}
               </pre>
             </div>
 
+            <h3 className="text-xl font-semibold mt-6">Import All Exports (New in v1.2.0)</h3>
+            <p className="text-muted-foreground">
+              Import all exports from a module as a single object using the <code className="bg-muted px-2 py-1 rounded-md text-sm">import &lt;identifier&gt; "path"</code> syntax.
+            </p>
+            <div className="bg-card border border-border rounded-md p-4">
+              <pre className="font-mono text-sm text-foreground">
+{`// Import all exports as an object
+import lib "modules/mathUtils"
+import config "config/settings"
+
+// Access exports through the identifier
+local sum = lib.add(10, 20)
+local product = lib.multiply(5, 4)
+console.log("Sum:", sum)         // Output: 30
+console.log("Product:", product) // Output: 20
+
+// Access config variables
+console.log(config.appName)   // Output: My Fluxo App
+console.log(config.version)   // Output: 1.0.0`}
+              </pre>
+            </div>
+            
+            <div className="bg-accent/10 border border-accent/20 rounded-md p-4 mt-4">
+              <p className="text-sm font-semibold mb-2">Why use import all?</p>
+              <ul className="text-sm text-muted-foreground space-y-1 list-disc list-inside">
+                <li>Cleaner code when using many exports from a single module</li>
+                <li>Clear namespacing - you know exactly where each function comes from</li>
+                <li>Great for configuration modules with many variables</li>
+                <li>No naming conflicts between different modules</li>
+              </ul>
+            </div>
+
             <div className="bg-primary/10 border border-primary/20 rounded-md p-4 mt-6">
               <p className="text-sm font-semibold mb-2">Module File Rules</p>
               <ul className="text-sm text-muted-foreground space-y-1 list-disc list-inside">
