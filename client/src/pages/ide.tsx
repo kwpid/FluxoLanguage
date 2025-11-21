@@ -1,7 +1,8 @@
 import { useState, useCallback, useEffect, useRef } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { apiRequest } from "@/lib/queryClient";
-import type { FileNode, OutputMessage, WorkspaceState } from "@/lib/local-storage";
+import type { FileNode, WorkspaceState } from "@/lib/local-storage";
+import type { OutputMessage } from "@shared/schema";
 import { localStorageService } from "@/lib/local-storage";
 import { FileExplorer } from "@/components/ide/file-explorer";
 import { EditorPanel } from "@/components/ide/editor-panel";

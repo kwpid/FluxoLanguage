@@ -23,7 +23,30 @@ interface FluxoModule {
   variables: Map<string, any>;  // Track module-level variables
 }
 
+interface ModuleCacheEntry {
+  moduleName: string;
+  moduleObject: FluxoModule;
+  filePath: string;
+  executed: boolean;
+}
+
 export class FluxoInterpreter {
+  // Global module cache shared across ALL interpreter instances
+  private static globalModuleCache: Map<string, ModuleCacheEntry> = new Map();
+  
+  // Method to clear the global cache (useful for testing or workspace resets)
+  public static clearModuleCache() {
+    FluxoInterpreter.globalModuleCache.clear();
+  }
+  
+  // Method to get cache stats (for debugging)
+  public static getModuleCacheStats() {
+    return {
+      size: FluxoInterpreter.globalModuleCache.size,
+      modules: Array.from(FluxoInterpreter.globalModuleCache.keys())
+    };
+  }
+  
   private context: FluxoContext;
   private currentFilePath: string;
 
@@ -270,66 +293,72 @@ export class FluxoInterpreter {
       const fullPath = modulePath.startsWith('/') ? modulePath : `/${modulePath}`;
       const moduleFilePath = fullPath.endsWith('.fxm') ? fullPath : `${fullPath}.fxm`;
 
-      const moduleContent = await storage.getFileContent(moduleFilePath);
-      if (moduleContent) {
-        // Load the module if not already loaded
-        const moduleMatch = moduleContent.match(/module\s+(\w+)\s*\{/);
-        if (moduleMatch) {
-          const moduleName = moduleMatch[1];
-          
-          // Check if module is already loaded
-          if (!this.context.modules.has(moduleName)) {
+      // Check global cache first
+      let loadedModule: FluxoModule | undefined;
+      const cacheEntry = FluxoInterpreter.globalModuleCache.get(moduleFilePath);
+      
+      if (cacheEntry) {
+        // Module already loaded in global cache - reuse it
+        loadedModule = cacheEntry.moduleObject;
+        this.context.modules.set(cacheEntry.moduleName, loadedModule);
+      } else {
+        // Module not in cache - load it
+        const moduleContent = await storage.getFileContent(moduleFilePath);
+        if (moduleContent) {
+          const moduleMatch = moduleContent.match(/module\s+(\w+)\s*\{/);
+          if (moduleMatch) {
+            const moduleName = moduleMatch[1];
             try {
               await this.loadModule(moduleContent, moduleFilePath);
+              loadedModule = this.context.modules.get(moduleName);
             } catch (error: any) {
               throw new Error(`Failed to load module '${moduleName}' from ${moduleFilePath}: ${error.message}`);
             }
-          }
-          
-          const loadedModule = this.context.modules.get(moduleName);
-          if (loadedModule) {
-            const notFoundExports: string[] = [];
-            
-            // Import only the specified variables/functions
-            importList.forEach(name => {
-              if (loadedModule.exports.has(name)) {
-                const exported = loadedModule.exports.get(name);
-                if (typeof exported === 'object' && exported.params !== undefined) {
-                  // It's a function - create wrapper
-                  this.context.variables.set(name, (...args: any[]) => {
-                    return this.executeFunction(exported, args);
-                  });
-                } else {
-                  // It's a variable
-                  this.context.variables.set(name, exported);
-                }
-              } else {
-                notFoundExports.push(name);
-              }
-            });
-            
-            if (notFoundExports.length > 0) {
-              const availableExports = Array.from(loadedModule.exports.keys()).join(', ');
-              throw new Error(
-                `Import Error: The following exports were not found in module '${moduleName}': ${notFoundExports.join(', ')}\n` +
-                `Available exports: ${availableExports || '(none)'}\n` +
-                `File: ${moduleFilePath}`
-              );
-            }
+          } else {
+            throw new Error(
+              `Invalid module file: ${moduleFilePath}\n` +
+              `Expected format: module moduleName { ... }\n` +
+              `Make sure the file contains a valid module declaration.`
+            );
           }
         } else {
+          const suggestion = fullPath.endsWith('.fxm') ? '' : `\nDid you mean: "${modulePath}.fxm"?`;
           throw new Error(
-            `Invalid module file: ${moduleFilePath}\n` +
-            `Expected format: module moduleName { ... }\n` +
-            `Make sure the file contains a valid module declaration.`
+            `Module not found: ${moduleFilePath}\n` +
+            `Make sure the file exists in your workspace.${suggestion}`
           );
         }
-      } else {
-        const suggestion = fullPath.endsWith('.fxm') ? '' : `\nDid you mean: "${modulePath}.fxm"?`;
-        throw new Error(
-          `Module not found: ${moduleFilePath}\n` +
-          `Make sure the file exists in your workspace.${suggestion}`
-        );
+      }
+      
+      if (loadedModule) {
+        const notFoundExports: string[] = [];
+        
+        // Import only the specified variables/functions (by reference)
+        importList.forEach(name => {
+          if (loadedModule!.exports.has(name)) {
+            const exported = loadedModule!.exports.get(name);
+            if (typeof exported === 'object' && exported.params !== undefined) {
+              // It's a function - create wrapper
+              this.context.variables.set(name, (...args: any[]) => {
+                return this.executeFunction(exported, args);
+              });
+            } else {
+              // It's a variable - reference it directly (not a copy!)
+              this.context.variables.set(name, exported);
+            }
+          } else {
+            notFoundExports.push(name);
+          }
+        });
+        
+        if (notFoundExports.length > 0) {
+          const availableExports = Array.from(loadedModule.exports.keys()).join(', ');
+          throw new Error(
+            `Import Error: The following exports were not found in module '${loadedModule.name}': ${notFoundExports.join(', ')}\n` +
+            `Available exports: ${availableExports || '(none)'}\n` +
+            `File: ${moduleFilePath}`
+          );
+        }
       }
 
       return pos + match[0].length;
@@ -358,46 +387,24 @@ export class FluxoInterpreter {
         moduleContent = await storage.getFileContent(moduleFilePath);
       }
       
-      if (moduleContent) {
-        // Load the module if not already loaded
+      // Check global cache first
+      let loadedModule: FluxoModule | undefined;
+      const cacheEntry = FluxoInterpreter.globalModuleCache.get(moduleFilePath);
+      
+      if (cacheEntry) {
+        // Module already loaded in global cache - reuse it
+        loadedModule = cacheEntry.moduleObject;
+        this.context.modules.set(cacheEntry.moduleName, loadedModule);
+      } else if (moduleContent) {
+        // Module not in cache - load it
         const moduleMatch = moduleContent.match(/module\s+(\w+)\s*\{/);
         if (moduleMatch) {
           const moduleName = moduleMatch[1];
-          
-          // Check if module is already loaded
-          if (!this.context.modules.has(moduleName)) {
-            try {
-              await this.loadModule(moduleContent, moduleFilePath);
-            } catch (error: any) {
-              throw new Error(`Failed to load module '${moduleName}' from ${moduleFilePath}: ${error.message}`);
-            }
-          }
-          
-          const loadedModule = this.context.modules.get(moduleName);
-          if (loadedModule) {
-            // Create an object with all exports - this will be the ONLY thing added to context
-            const exportedObject: any = {};
-            
-            loadedModule.exports.forEach((item, name) => {
-              if (typeof item === 'object' && item.params !== undefined) {
-                // It's a function - create wrapper
-                exportedObject[name] = (...args: any[]) => {
-                  return this.executeFunction(item, args);
-                };
-              } else {
-                // It's a variable - just use the value directly
-                exportedObject[name] = item;
-              }
-            });
-            
-            // IMPORTANT: Only add the alias object to context, NOT individual exports
-            // This prevents global scope pollution
-            this.context.variables.set(identifier, exportedObject);
-          } else {
-            throw new Error(
-              `Failed to load module from ${moduleFilePath}.\n` +
-              `Make sure the file contains a valid module declaration.`
-            );
+          try {
+            await this.loadModule(moduleContent, moduleFilePath);
+            loadedModule = this.context.modules.get(moduleName);
+          } catch (error: any) {
+            throw new Error(`Failed to load module '${moduleName}' from ${moduleFilePath}: ${error.message}`);
           }
         } else {
           throw new Error(
@@ -412,6 +419,27 @@ export class FluxoInterpreter {
           `Make sure the file exists in your workspace.${suggestion}`
         );
       }
+      
+      if (loadedModule) {
+        // Create an object with all exports - this will be the ONLY thing added to context
+        const exportedObject: any = {};
+        
+        loadedModule.exports.forEach((item, name) => {
+          if (typeof item === 'object' && item.params !== undefined) {
+            // It's a function - create wrapper
+            exportedObject[name] = (...args: any[]) => {
+              return this.executeFunction(item, args);
+            };
+          } else {
+            // It's a variable - reference directly (not a copy!)
+            exportedObject[name] = item;
+          }
+        });
+        
+        // IMPORTANT: Only add the alias object to context, NOT individual exports
+        // This prevents global scope pollution
+        this.context.variables.set(identifier, exportedObject);
+      }
 
       return pos + match[0].length;
     }
@@ -425,53 +453,58 @@ export class FluxoInterpreter {
       const fullPath = modulePath.startsWith('/') ? modulePath : `/${modulePath}`;
       const moduleFilePath = fullPath.endsWith('.fxm') ? fullPath : `${fullPath}.fxm`;
 
-      const moduleContent = await storage.getFileContent(moduleFilePath);
-      if (moduleContent) {
-        // Load the module if not already loaded
-        const moduleMatch = moduleContent.match(/module\s+(\w+)\s*\{/);
-        if (moduleMatch) {
-          const moduleName = moduleMatch[1];
-          
-          // Check if module is already loaded
-          if (!this.context.modules.has(moduleName)) {
+      // Check global cache first
+      let loadedModule: FluxoModule | undefined;
+      const cacheEntry = FluxoInterpreter.globalModuleCache.get(moduleFilePath);
+      
+      if (cacheEntry) {
+        // Module already loaded in global cache - reuse it
+        loadedModule = cacheEntry.moduleObject;
+        this.context.modules.set(cacheEntry.moduleName, loadedModule);
+      } else {
+        // Module not in cache - load it
+        const moduleContent = await storage.getFileContent(moduleFilePath);
+        if (moduleContent) {
+          const moduleMatch = moduleContent.match(/module\s+(\w+)\s*\{/);
+          if (moduleMatch) {
+            const moduleName = moduleMatch[1];
             try {
               await this.loadModule(moduleContent, moduleFilePath);
+              loadedModule = this.context.modules.get(moduleName);
             } catch (error: any) {
               throw new Error(`Failed to load module from ${moduleFilePath}: ${error.message}`);
             }
-          }
-          
-          // After loading, make the module accessible via its name (for backward compatibility with import())
-          const loadedModule = this.context.modules.get(moduleName);
-          if (loadedModule) {
-            const moduleProxy: any = {};
-            loadedModule.exports.forEach((item, name) => {
-              if (typeof item === 'object' && item.params !== undefined) {
-                // It's a function
-                moduleProxy[name] = (...args: any[]) => {
-                  return this.executeFunction(item, args);
-                };
-              } else {
-                // It's a variable
-                moduleProxy[name] = item;
-              }
-            });
-            
-            // Add to global scope only for require() and import() (legacy behavior)
-            this.context.variables.set(moduleName, moduleProxy);
+          } else {
+            throw new Error(
+              `Invalid module file: ${moduleFilePath}\n` +
+              `Expected format: module moduleName { ... }`
+            );
           }
         } else {
+          const suggestion = fullPath.endsWith('.fxm') ? '' : `\nDid you mean: "${modulePath}.fxm"?`;
           throw new Error(
-            `Invalid module file: ${moduleFilePath}\n` +
-            `Expected format: module moduleName { ... }`
+            `Module not found: ${moduleFilePath}\n` +
+            `Make sure the file exists in your workspace.${suggestion}`
           );
         }
-      } else {
-        const suggestion = fullPath.endsWith('.fxm') ? '' : `\nDid you mean: "${modulePath}.fxm"?`;
-        throw new Error(
-          `Module not found: ${moduleFilePath}\n` +
-          `Make sure the file exists in your workspace.${suggestion}`
-        );
+      }
+      
+      if (loadedModule) {
+        const moduleProxy: any = {};
+        loadedModule.exports.forEach((item, name) => {
+          if (typeof item === 'object' && item.params !== undefined) {
+            // It's a function
+            moduleProxy[name] = (...args: any[]) => {
+              return this.executeFunction(item, args);
+            };
+          } else {
+            // It's a variable - reference directly (not a copy!)
+            moduleProxy[name] = item;
+          }
+        });
+        
+        // Add to global scope only for require() and import() (legacy behavior)
+        this.context.variables.set(loadedModule.name, moduleProxy);
       }
 
       return pos + match[0].length;
@@ -568,6 +601,15 @@ export class FluxoInterpreter {
 
     const moduleName = match[1];
     const moduleBody = match[2];
+    const actualFilePath = moduleFilePath || this.currentFilePath;
+    
+    // Check if this module is already in the global cache
+    const existingCache = FluxoInterpreter.globalModuleCache.get(actualFilePath);
+    if (existingCache) {
+      // Module already executed - just register it in this context
+      this.context.modules.set(moduleName, existingCache.moduleObject);
+      return;
+    }
 
     const moduleObj: FluxoModule = {
       name: moduleName,
@@ -576,8 +618,6 @@ export class FluxoInterpreter {
     };
 
     // Check if this file is allowed to use export {} syntax
-    // Use the module's own file path, not the caller's path
-    const actualFilePath = moduleFilePath || this.currentFilePath;
     const isModuleFile = actualFilePath.endsWith('.fxm');
     // More precise regex that won't match import statements
     const hasExportBlock = /(?:^|\n)\s*export\s*\{[\s\S]*?\}/.test(moduleBody);
@@ -650,7 +690,16 @@ export class FluxoInterpreter {
       }
     }
 
+    // Store in both instance context and global cache
     this.context.modules.set(moduleName, moduleObj);
+    
+    // CRITICAL: Store in global cache so other files reuse the same module
+    FluxoInterpreter.globalModuleCache.set(actualFilePath, {
+      moduleName: moduleName,
+      moduleObject: moduleObj,
+      filePath: actualFilePath,
+      executed: true,
+    });
     
     // Note: We no longer add modules to global scope automatically
     // Modules must be explicitly imported using:
