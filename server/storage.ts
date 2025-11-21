@@ -242,6 +242,10 @@ console.log("Explore the scripts/ and modules/ folders to learn more")
     const workspace = this.getCurrentWorkspace();
     const newPath = parentPath === '/' ? `/${name}` : `${parentPath}/${name}`;
     
+    if (this.findNode(newPath)) {
+      throw new Error(`A ${type} with the name "${name}" already exists in this location`);
+    }
+    
     const newNode: FileNode = {
       id: randomUUID(),
       name,
@@ -256,7 +260,13 @@ console.log("Explore the scripts/ and modules/ folders to learn more")
       workspace.fileTree.push(newNode);
     } else {
       const parent = this.findNode(parentPath);
-      if (parent && parent.children) {
+      if (!parent) {
+        throw new Error(`Parent path "${parentPath}" not found`);
+      }
+      if (parent.type !== 'folder') {
+        throw new Error(`Parent path "${parentPath}" is not a folder`);
+      }
+      if (parent.children) {
         parent.children.push(newNode);
       }
     }
@@ -273,23 +283,29 @@ console.log("Explore the scripts/ and modules/ folders to learn more")
 
   async renameFile(oldPath: string, newName: string): Promise<void> {
     const node = this.findNode(oldPath);
-    if (node) {
-      const parentPath = oldPath.substring(0, oldPath.lastIndexOf('/')) || '/';
-      const newPath = parentPath === '/' ? `/${newName}` : `${parentPath}/${newName}`;
-      
-      node.name = newName;
-      node.path = newPath;
-      
-      if (node.type === 'file') {
-        node.extension = newName.substring(newName.lastIndexOf('.'));
-      }
-
-      if (node.children) {
-        this.updateChildrenPaths(node.children, newPath);
-      }
-
-      this.updateOpenTabPaths(oldPath, newPath);
+    if (!node) {
+      throw new Error(`File or folder not found at path: ${oldPath}`);
     }
+    
+    const parentPath = oldPath.substring(0, oldPath.lastIndexOf('/')) || '/';
+    const newPath = parentPath === '/' ? `/${newName}` : `${parentPath}/${newName}`;
+    
+    if (newPath !== oldPath && this.findNode(newPath)) {
+      throw new Error(`A ${node.type} with the name "${newName}" already exists in this location`);
+    }
+    
+    node.name = newName;
+    node.path = newPath;
+    
+    if (node.type === 'file') {
+      node.extension = newName.substring(newName.lastIndexOf('.'));
+    }
+
+    if (node.children) {
+      this.updateChildrenPaths(node.children, newPath);
+    }
+
+    this.updateOpenTabPaths(oldPath, newPath);
   }
 
   private updateChildrenPaths(children: FileNode[], parentPath: string) {

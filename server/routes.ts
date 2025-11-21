@@ -96,8 +96,9 @@ export async function registerRoutes(app: Express): Promise<Server> {
       const data = createWorkspaceRequestSchema.parse(req.body);
       const workspace = await userStorage.createWorkspace(data.name);
       res.json(workspace);
-    } catch (error) {
-      res.status(400).json({ error: 'Failed to create workspace' });
+    } catch (error: any) {
+      console.error('Failed to create workspace:', error);
+      res.status(400).json({ error: error.message || 'Failed to create workspace' });
     }
   });
 
@@ -214,8 +215,9 @@ export async function registerRoutes(app: Express): Promise<Server> {
         data.content
       );
       res.json(newNode);
-    } catch (error) {
-      res.status(400).json({ error: 'Failed to create file' });
+    } catch (error: any) {
+      console.error('Failed to create file:', error);
+      res.status(400).json({ error: error.message || 'Failed to create file' });
     }
   });
 
@@ -226,8 +228,9 @@ export async function registerRoutes(app: Express): Promise<Server> {
       const data = updateFileRequestSchema.parse(req.body);
       await userStorage.updateFile(data.path, data.content);
       res.json({ success: true });
-    } catch (error) {
-      res.status(400).json({ error: 'Failed to save file' });
+    } catch (error: any) {
+      console.error('Failed to save file:', error);
+      res.status(400).json({ error: error.message || 'Failed to save file' });
     }
   });
 
@@ -238,8 +241,9 @@ export async function registerRoutes(app: Express): Promise<Server> {
       const data = renameFileRequestSchema.parse(req.body);
       await userStorage.renameFile(data.oldPath, data.newName);
       res.json({ success: true });
-    } catch (error) {
-      res.status(400).json({ error: 'Failed to rename file' });
+    } catch (error: any) {
+      console.error('Failed to rename file:', error);
+      res.status(400).json({ error: error.message || 'Failed to rename file' });
     }
   });
 
@@ -250,8 +254,9 @@ export async function registerRoutes(app: Express): Promise<Server> {
       const data = deleteFileRequestSchema.parse(req.body);
       await userStorage.deleteFile(data.path);
       res.json({ success: true });
-    } catch (error) {
-      res.status(400).json({ error: 'Failed to delete file' });
+    } catch (error: any) {
+      console.error('Failed to delete file:', error);
+      res.status(400).json({ error: error.message || 'Failed to delete file' });
     }
   });
 
@@ -364,8 +369,9 @@ export async function registerRoutes(app: Express): Promise<Server> {
       const { openTabs, activeTab } = req.body;
       await userStorage.updateWorkspaceState(openTabs || [], activeTab);
       res.json({ success: true });
-    } catch (error) {
-      res.status(400).json({ error: 'Failed to update workspace state' });
+    } catch (error: any) {
+      console.error('Failed to update workspace state:', error);
+      res.status(400).json({ error: error.message || 'Failed to update workspace state' });
     }
   });
 
