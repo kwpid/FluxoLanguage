@@ -16,11 +16,13 @@ import { DeleteDialog } from "./delete-dialog";
 
 interface FileExplorerProps {
   fileTree: FileNode[];
-  onFileClick: (path: string) => void;
-  onRefresh: () => void;
+  onFileSelect: (path: string) => void;
+  onFileCreate: (path: string, name: string, type: 'file' | 'folder') => void;
+  onFileRename: (path: string, newName: string) => void;
+  onFileDelete: (path: string) => void;
 }
 
-export function FileExplorer({ fileTree, onFileClick, onRefresh }: FileExplorerProps) {
+export function FileExplorer({ fileTree, onFileSelect, onFileCreate, onFileRename, onFileDelete }: FileExplorerProps) {
   const [expandedFolders, setExpandedFolders] = useState<Set<string>>(new Set(['/', '/scripts', '/modules']));
   const [createDialogOpen, setCreateDialogOpen] = useState(false);
   const [createType, setCreateType] = useState<'file' | 'folder'>('file');
@@ -85,28 +87,9 @@ export function FileExplorer({ fileTree, onFileClick, onRefresh }: FileExplorerP
     e.stopPropagation();
     setDropTargetPath(null);
 
-    if (!draggedNode || targetNode.type !== 'folder' || draggedNode.path === targetNode.path) {
-      return;
-    }
-
-    if (targetNode.path.startsWith(draggedNode.path + '/')) {
-      return;
-    }
-
-    try {
-      await fetch('/api/files/move', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          sourcePath: draggedNode.path,
-          targetPath: targetNode.path,
-        }),
-      });
-      onRefresh();
-    } catch (error) {
-      console.error('Failed to move file:', error);
-    }
-
+    // Note: Drag-and-drop file moving is disabled when using local storage
+    // You can manually cut/paste or rename files instead
+    
     setDraggedNode(null);
   };
 
@@ -141,7 +124,7 @@ export function FileExplorer({ fileTree, onFileClick, onRefresh }: FileExplorerP
                 if (isFolder) {
                   toggleFolder(node.path);
                 } else {
-                  onFileClick(node.path);
+                  onFileSelect(node.path);
                 }
               }}
               data-testid={`file-tree-item-${node.path}`}
@@ -244,21 +227,31 @@ export function FileExplorer({ fileTree, onFileClick, onRefresh }: FileExplorerP
         onOpenChange={setCreateDialogOpen}
         parentPath={createParentPath}
         type={createType}
-        onSuccess={onRefresh}
+        onSuccess={(name, type) => {
+          onFileCreate(createParentPath, name, type);
+        }}
       />
 
       <RenameDialog
         open={renameDialogOpen}
         onOpenChange={setRenameDialogOpen}
         node={renameNode}
-        onSuccess={onRefresh}
+        onSuccess={(newName) => {
+          if (renameNode) {
+            onFileRename(renameNode.path, newName);
+          }
+        }}
       />
 
       <DeleteDialog
         open={deleteDialogOpen}
         onOpenChange={setDeleteDialogOpen}
         node={deleteNode}
-        onSuccess={onRefresh}
+        onSuccess={() => {
+          if (deleteNode) {
+            onFileDelete(deleteNode.path);
+          }
+        }}
       />
     </div>
   );

@@ -12,7 +12,7 @@ interface CreateFileDialogProps {
   onOpenChange: (open: boolean) => void;
   parentPath: string;
   type: 'file' | 'folder';
-  onSuccess: () => void;
+  onSuccess: (name: string, type: 'file' | 'folder') => void;
 }
 
 export function CreateFileDialog({ open, onOpenChange, parentPath, type, onSuccess }: CreateFileDialogProps) {
@@ -40,34 +40,16 @@ export function CreateFileDialog({ open, onOpenChange, parentPath, type, onSucce
       initialContent = `module ${moduleName} {\n    \n}\n`;
     }
 
-    setIsCreating(true);
-    try {
-      await apiRequest('POST', '/api/files/create', {
-        parentPath,
-        name: finalName,
-        type,
-        content: type === 'file' ? initialContent : undefined,
-      });
+    // Note: File creation is now handled by local storage via the parent callback
+    toast({
+      title: "Success",
+      description: `${type === 'file' ? 'File' : 'Folder'} created successfully`,
+    });
 
-      toast({
-        title: "Success",
-        description: `${type === 'file' ? 'File' : 'Folder'} created successfully`,
-      });
-
-      setName('');
-      setFileType('.fxo');
-      onOpenChange(false);
-      queryClient.invalidateQueries({ queryKey: ['/api/workspace'] });
-      onSuccess();
-    } catch (error) {
-      toast({
-        title: "Error",
-        description: `Failed to create ${type}`,
-        variant: "destructive",
-      });
-    } finally {
-      setIsCreating(false);
-    }
+    setName('');
+    setFileType('.fxo');
+    onOpenChange(false);
+    onSuccess(finalName, type);
   };
 
   return (

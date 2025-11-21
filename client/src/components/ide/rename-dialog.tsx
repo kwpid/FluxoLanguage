@@ -11,7 +11,7 @@ interface RenameDialogProps {
   open: boolean;
   onOpenChange: (open: boolean) => void;
   node: FileNode | null;
-  onSuccess: () => void;
+  onSuccess: (newName: string) => void;
 }
 
 export function RenameDialog({ open, onOpenChange, node, onSuccess }: RenameDialogProps) {
@@ -40,30 +40,14 @@ export function RenameDialog({ open, onOpenChange, node, onSuccess }: RenameDial
       return;
     }
 
-    setIsRenaming(true);
-    try {
-      await apiRequest('POST', '/api/files/rename', {
-        oldPath: node.path,
-        newName: name,
-      });
+    // Note: File rename is now handled by local storage via the parent callback
+    toast({
+      title: "Success",
+      description: "Renamed successfully",
+    });
 
-      toast({
-        title: "Success",
-        description: "Renamed successfully",
-      });
-
-      onOpenChange(false);
-      queryClient.invalidateQueries({ queryKey: ['/api/workspace'] });
-      onSuccess();
-    } catch (error) {
-      toast({
-        title: "Error",
-        description: "Failed to rename",
-        variant: "destructive",
-      });
-    } finally {
-      setIsRenaming(false);
-    }
+    onOpenChange(false);
+    onSuccess(name);
   };
 
   return (

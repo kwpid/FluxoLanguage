@@ -1,7 +1,8 @@
 import { useState, useCallback, useEffect, useRef } from "react";
-import { useQuery, useMutation } from "@tanstack/react-query";
-import { queryClient, apiRequest } from "@/lib/queryClient";
-import type { FileNode, WorkspaceState, OutputMessage } from "@shared/schema";
+import { useQuery } from "@tanstack/react-query";
+import { apiRequest } from "@/lib/queryClient";
+import type { FileNode, OutputMessage } from "@shared/schema";
+import { localStorageService, type WorkspaceState } from "@/lib/local-storage";
 import { FileExplorer } from "@/components/ide/file-explorer";
 import { EditorPanel } from "@/components/ide/editor-panel";
 import { OutputPanel } from "@/components/ide/output-panel";
@@ -12,88 +13,71 @@ import { useToast } from "@/hooks/use-toast";
 
 export default function IDE() {
   const { toast } = useToast();
+  const [workspace, setWorkspace] = useState<WorkspaceState | null>(null);
   const [openTabs, setOpenTabs] = useState<string[]>([]);
   const [activeTab, setActiveTab] = useState<string | null>(null);
   const [fileContents, setFileContents] = useState<Record<string, string>>({});
   const [unsavedFiles, setUnsavedFiles] = useState<Set<string>>(new Set());
   const [output, setOutput] = useState<OutputMessage[]>([]);
   const [isRunning, setIsRunning] = useState(false);
-  const currentWorkspaceId = useRef<string | null>(null);
   const autoSaveTimeouts = useRef<Map<string, NodeJS.Timeout>>(new Map());
   const lastSavedContent = useRef<Map<string, string>>(new Map());
-
-  const { data: workspace, isLoading } = useQuery<WorkspaceState>({
-    queryKey: ['/api/workspace'],
-  });
 
   const { data: extensions = [] } = useQuery<Array<{ id: string; enabled: boolean }>>({
     queryKey: ['/api/extensions'],
   });
 
+  // Initialize workspace from local storage
   useEffect(() => {
-    if (workspace) {
-      // Check if workspace ID has changed
-      const workspaceChanged = currentWorkspaceId.current !== workspace.id;
+    const currentWorkspace = localStorageService.initializeDefaultWorkspace();
+    setWorkspace(currentWorkspace);
+    
+    // Load workspace state
+    if (currentWorkspace.openTabs.length > 0) {
+      setOpenTabs(currentWorkspace.openTabs);
+      setActiveTab(currentWorkspace.activeTab);
       
-      if (workspaceChanged) {
-        // Immediately reset all state when workspace changes to ensure no stale data
-        currentWorkspaceId.current = workspace.id;
-        setOpenTabs([]);
-        setActiveTab(null);
-        setFileContents({});
-        setUnsavedFiles(new Set());
-      }
-      
-      // Load new workspace data
-      if (workspace.openTabs.length > 0) {
-        setOpenTabs(workspace.openTabs);
-        if (workspace.activeTab) {
-          setActiveTab(workspace.activeTab);
+      // Load file contents from local storage
+      currentWorkspace.openTabs.forEach((path) => {
+        const content = localStorageService.getFileContent(currentWorkspace.id, path);
+        if (content !== null) {
+          setFileContents(prev => ({ ...prev, [path]: content }));
+          lastSavedContent.current.set(path, content);
         }
-        
-        workspace.openTabs.forEach(async (path) => {
-          try {
-            const response = await fetch(`/api/files/content?path=${encodeURIComponent(path)}`);
-            const data = await response.json();
-            setFileContents(prev => ({ ...prev, [path]: data.content }));
-            lastSavedContent.current.set(path, data.content);
-          } catch (error) {
-            console.error('Failed to load file:', path);
-          }
-        });
+      });
+    }
+  }, []);
+
+  // Save workspace state to local storage when tabs change
+  useEffect(() => {
+    if (workspace && openTabs.length >= 0) {
+      const saveDebounce = setTimeout(() => {
+        localStorageService.saveWorkspaceState(workspace.id, openTabs, activeTab);
+      }, 500);
+      return () => clearTimeout(saveDebounce);
+    }
+  }, [workspace, openTabs, activeTab]);
+
+  const refreshFileTree = useCallback(() => {
+    if (workspace) {
+      const updatedWorkspace = localStorageService.getWorkspace(workspace.id);
+      if (updatedWorkspace) {
+        setWorkspace(updatedWorkspace);
       }
     }
   }, [workspace]);
 
-  useEffect(() => {
-    const saveWorkspaceState = async () => {
-      if (openTabs.length > 0) {
-        try {
-          await apiRequest('POST', '/api/workspace/state', {
-            openTabs,
-            activeTab,
-          });
-        } catch (error) {
-          console.error('Failed to save workspace state');
-        }
-      }
-    };
-
-    const debounce = setTimeout(saveWorkspaceState, 500);
-    return () => clearTimeout(debounce);
-  }, [openTabs, activeTab]);
-
-  const openFile = useCallback(async (path: string) => {
+  const openFile = useCallback((path: string) => {
+    if (!workspace) return;
+    
     if (!openTabs.includes(path)) {
-      try {
-        const response = await fetch(`/api/files/content?path=${encodeURIComponent(path)}`);
-        const data = await response.json();
-        
-        setFileContents(prev => ({ ...prev, [path]: data.content }));
-        lastSavedContent.current.set(path, data.content);
+      const content = localStorageService.getFileContent(workspace.id, path);
+      if (content !== null) {
+        setFileContents(prev => ({ ...prev, [path]: content }));
+        lastSavedContent.current.set(path, content);
         setOpenTabs(prev => [...prev, path]);
         setActiveTab(path);
-      } catch (error) {
+      } else {
         toast({
           title: "Error",
           description: "Failed to open file",
@@ -103,7 +87,7 @@ export default function IDE() {
     } else {
       setActiveTab(path);
     }
-  }, [openTabs, toast]);
+  }, [workspace, openTabs, toast]);
 
   const closeTab = useCallback((path: string) => {
     const timeout = autoSaveTimeouts.current.get(path);
@@ -127,13 +111,11 @@ export default function IDE() {
     });
   }, [activeTab, openTabs]);
 
-  const performSave = useCallback(async (path: string, contentToSave: string, showToast = false) => {
+  const performSave = useCallback((path: string, contentToSave: string, showToast = false) => {
+    if (!workspace) return false;
+    
     try {
-      await apiRequest('POST', '/api/files/save', {
-        path,
-        content: contentToSave,
-      });
-      
+      localStorageService.saveFileContent(workspace.id, path, contentToSave);
       lastSavedContent.current.set(path, contentToSave);
       
       setFileContents(currentContents => {
@@ -169,7 +151,7 @@ export default function IDE() {
       }
       return false;
     }
-  }, [toast]);
+  }, [workspace, toast]);
 
   const updateFileContent = useCallback((path: string, content: string) => {
     setFileContents(prev => ({ ...prev, [path]: content }));
@@ -198,11 +180,11 @@ export default function IDE() {
       autoSaveTimeouts.current.delete(path);
     }
     
-    await performSave(path, fileContents[path] || '', true);
+    performSave(path, fileContents[path] || '', true);
   }, [fileContents, performSave]);
 
   const runCode = useCallback(async () => {
-    if (!activeTab) return;
+    if (!activeTab || !workspace) return;
     
     const isHtmlFile = activeTab.endsWith('.html') || activeTab.endsWith('.htm');
     
@@ -211,7 +193,6 @@ export default function IDE() {
     
     try {
       if (isHtmlFile) {
-        // For HTML files, the preview runs continuously in the browser
         setOutput([{
           id: crypto.randomUUID(),
           type: 'success',
@@ -228,15 +209,12 @@ export default function IDE() {
           title: "Preview Active",
           description: "HTML is running in the Preview tab",
         });
-        
-        // Keep isRunning true until user stops - HTML runs continuously
       } else {
         // For Fluxo files, execute entire workspace on the backend
-        // Get all Fluxo files from the file tree
         const fluxoFiles: { path: string; code: string }[] = [];
         
         // Helper function to recursively find all Fluxo files
-        const findFluxoFiles = (nodes: any[]): string[] => {
+        const findFluxoFiles = (nodes: FileNode[]): string[] => {
           const files: string[] = [];
           for (const node of nodes) {
             if (node.type === 'file' && (node.path.endsWith('.fxo') || node.path.endsWith('.fxm'))) {
@@ -248,7 +226,7 @@ export default function IDE() {
           return files;
         };
         
-        const fileTree = workspace?.fileTree ?? [];
+        const fileTree = workspace.fileTree ?? [];
         const allFluxoPaths = findFluxoFiles(fileTree);
         
         if (allFluxoPaths.length === 0) {
@@ -262,17 +240,16 @@ export default function IDE() {
           return;
         }
         
-        // Load content for all Fluxo files
+        // Load content for all Fluxo files from local storage
         for (const path of allFluxoPaths) {
-          // Use cached content if available (opened tabs), otherwise fetch from backend
+          // Use cached content if available (opened tabs), otherwise load from local storage
           if (fileContents[path]) {
             fluxoFiles.push({ path, code: fileContents[path] });
           } else {
-            try {
-              const response = await apiRequest('GET', `/api/files/content?path=${encodeURIComponent(path)}`);
-              const content = await response.text();
+            const content = localStorageService.getFileContent(workspace.id, path);
+            if (content !== null) {
               fluxoFiles.push({ path, code: content });
-            } catch (error) {
+            } else {
               setOutput(prev => [...prev, {
                 id: crypto.randomUUID(),
                 type: 'warning',
@@ -283,7 +260,7 @@ export default function IDE() {
           }
         }
         
-        // Execute all workspace files
+        // Execute all workspace files via backend API
         const response = await apiRequest('POST', '/api/execute-workspace', {
           files: fluxoFiles,
           entryPoint: activeTab,
@@ -309,7 +286,6 @@ export default function IDE() {
           }]);
         }
         
-        // Keep isRunning true until user stops - workspace runs continuously
         toast({
           title: "Workspace Running",
           description: `Executed ${fluxoFiles.length} file(s). Click Stop to halt execution.`,
@@ -323,7 +299,7 @@ export default function IDE() {
       });
       setIsRunning(false);
     }
-  }, [activeTab, fileContents, toast]);
+  }, [activeTab, workspace, fileContents, toast]);
 
   const stopCode = useCallback(() => {
     setIsRunning(false);
@@ -351,82 +327,113 @@ export default function IDE() {
           saveFile(activeTab);
         }
       }
-      if ((e.metaKey || e.ctrlKey) && e.key === 'Enter') {
-        e.preventDefault();
-        runCode();
-      }
     };
 
     window.addEventListener('keydown', handleKeyDown);
     return () => window.removeEventListener('keydown', handleKeyDown);
-  }, [activeTab, saveFile, runCode]);
+  }, [activeTab, saveFile]);
 
-  if (isLoading) {
-    return (
-      <div className="h-screen w-full flex items-center justify-center bg-background">
-        <div className="text-muted-foreground">Loading workspace...</div>
-      </div>
-    );
+  if (!workspace) {
+    return <div className="flex items-center justify-center h-screen">Loading workspace...</div>;
   }
 
+  const isHtmlFile = activeTab?.endsWith('.html') || activeTab?.endsWith('.htm');
+
   return (
-    <div className="h-screen w-full flex flex-col bg-background text-foreground overflow-hidden">
-      <Toolbar 
+    <div className="flex flex-col h-screen overflow-hidden">
+      <Toolbar
+        currentWorkspaceName={workspace.name}
         onRun={runCode}
         onStop={stopCode}
         onSave={() => activeTab && saveFile(activeTab)}
-        canSave={activeTab !== null && unsavedFiles.has(activeTab)}
-        canRun={activeTab !== null && !isRunning}
+        canSave={unsavedFiles.size > 0}
+        canRun={!!activeTab}
         isRunning={isRunning}
-        currentWorkspaceName={workspace?.name || "Workspace"}
       />
-      
-      <ResizablePanelGroup direction="vertical" className="flex-1">
-        <ResizablePanel defaultSize={75} minSize={50}>
-          <ResizablePanelGroup direction="horizontal">
-            <ResizablePanel defaultSize={20} minSize={15} maxSize={35}>
-              <FileExplorer 
-                fileTree={workspace?.fileTree || []}
-                onFileClick={openFile}
-                onRefresh={() => queryClient.invalidateQueries({ queryKey: ['/api/workspace'] })}
-              />
-            </ResizablePanel>
-            
-            <ResizableHandle className="w-1 bg-border hover-elevate" />
-            
-            <ResizablePanel defaultSize={55} minSize={30}>
-              <EditorPanel
-                openTabs={openTabs}
-                activeTab={activeTab}
-                fileContents={fileContents}
-                unsavedFiles={unsavedFiles}
-                onTabClick={setActiveTab}
-                onTabClose={closeTab}
-                onContentChange={updateFileContent}
-              />
-            </ResizablePanel>
-            
-            <ResizableHandle className="w-1 bg-border hover-elevate" />
-            
-            <ResizablePanel defaultSize={25} minSize={20} maxSize={40}>
-              <OutputPanel 
-                output={output}
-                onClear={() => setOutput([])}
-                activeFile={activeTab}
-                fileContents={fileContents}
-                onSourceClick={handleSourceClick}
-                extensions={extensions}
-              />
-            </ResizablePanel>
-          </ResizablePanelGroup>
+
+      <ResizablePanelGroup direction="horizontal" className="flex-1">
+        <ResizablePanel defaultSize={20} minSize={15} maxSize={30}>
+          <FileExplorer
+            fileTree={workspace.fileTree}
+            onFileSelect={openFile}
+            onFileCreate={(path, name, type) => {
+              if (workspace) {
+                localStorageService.createFile(workspace.id, path, name, type);
+                refreshFileTree();
+              }
+            }}
+            onFileRename={(path, newName) => {
+              if (workspace) {
+                const success = localStorageService.renameFile(workspace.id, path, newName);
+                if (success) {
+                  refreshFileTree();
+                  
+                  // Update open tabs if the renamed file was open
+                  const parentPath = path.substring(0, path.lastIndexOf('/'));
+                  const newPath = parentPath === '' ? `/${newName}` : `${parentPath}/${newName}`;
+                  
+                  if (openTabs.includes(path)) {
+                    setOpenTabs(prev => prev.map(p => p === path ? newPath : p));
+                    if (activeTab === path) {
+                      setActiveTab(newPath);
+                    }
+                    if (fileContents[path]) {
+                      setFileContents(prev => {
+                        const newContents = { ...prev };
+                        newContents[newPath] = newContents[path];
+                        delete newContents[path];
+                        return newContents;
+                      });
+                    }
+                  }
+                }
+              }
+            }}
+            onFileDelete={(path) => {
+              if (workspace) {
+                const success = localStorageService.deleteFile(workspace.id, path);
+                if (success) {
+                  refreshFileTree();
+                  
+                  // Close tab if the deleted file was open
+                  if (openTabs.includes(path)) {
+                    closeTab(path);
+                  }
+                }
+              }
+            }}
+          />
         </ResizablePanel>
-        
-        <ResizableHandle className="h-1 bg-border hover-elevate" />
-        
-        <ResizablePanel defaultSize={25} minSize={15} maxSize={50}>
-          <Terminal />
+
+        <ResizableHandle />
+
+        <ResizablePanel defaultSize={50} minSize={30}>
+          <EditorPanel
+            openTabs={openTabs}
+            activeTab={activeTab}
+            fileContents={fileContents}
+            unsavedFiles={unsavedFiles}
+            onTabClick={setActiveTab}
+            onTabClose={closeTab}
+            onContentChange={updateFileContent}
+          />
+        </ResizablePanel>
+
+        <ResizableHandle />
+
+        <ResizablePanel defaultSize={30} minSize={20}>
+          <OutputPanel
+            output={output}
+            onClear={() => setOutput([])}
+            activeFile={activeTab}
+            fileContents={fileContents}
+            onSourceClick={handleSourceClick}
+            extensions={extensions}
+          />
         </ResizablePanel>
       </ResizablePanelGroup>
+
+      <Terminal />
     </div>
   );
 }

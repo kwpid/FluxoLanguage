@@ -17,32 +17,17 @@ export function DeleteDialog({ open, onOpenChange, node, onSuccess }: DeleteDial
   const { toast } = useToast();
   const [isDeleting, setIsDeleting] = useState(false);
 
-  const handleDelete = async () => {
+  const handleDelete = () => {
     if (!node) return;
 
-    setIsDeleting(true);
-    try {
-      await apiRequest('POST', '/api/files/delete', {
-        path: node.path,
-      });
+    // Note: File deletion is now handled by local storage via the parent callback
+    toast({
+      title: "Success",
+      description: `${node.type === 'file' ? 'File' : 'Folder'} deleted successfully`,
+    });
 
-      toast({
-        title: "Success",
-        description: `${node.type === 'file' ? 'File' : 'Folder'} deleted successfully`,
-      });
-
-      onOpenChange(false);
-      queryClient.invalidateQueries({ queryKey: ['/api/workspace'] });
-      onSuccess();
-    } catch (error) {
-      toast({
-        title: "Error",
-        description: "Failed to delete",
-        variant: "destructive",
-      });
-    } finally {
-      setIsDeleting(false);
-    }
+    onOpenChange(false);
+    onSuccess();
   };
 
   return (
