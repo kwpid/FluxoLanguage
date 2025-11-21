@@ -1,8 +1,8 @@
 import { useState, useCallback, useEffect, useRef } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { apiRequest } from "@/lib/queryClient";
-import type { FileNode, OutputMessage } from "@shared/schema";
-import { localStorageService, type WorkspaceState } from "@/lib/local-storage";
+import type { FileNode, OutputMessage, WorkspaceState } from "@/lib/local-storage";
+import { localStorageService } from "@/lib/local-storage";
 import { FileExplorer } from "@/components/ide/file-explorer";
 import { EditorPanel } from "@/components/ide/editor-panel";
 import { OutputPanel } from "@/components/ide/output-panel";
@@ -356,9 +356,9 @@ export default function IDE() {
           <FileExplorer
             fileTree={workspace.fileTree}
             onFileSelect={openFile}
-            onFileCreate={(path, name, type) => {
+            onFileCreate={(path, name, type, initialContent) => {
               if (workspace) {
-                localStorageService.createFile(workspace.id, path, name, type);
+                localStorageService.createFile(workspace.id, path, name, type, initialContent);
                 refreshFileTree();
               }
             }}

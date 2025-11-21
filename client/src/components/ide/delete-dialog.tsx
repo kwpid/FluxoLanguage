@@ -1,9 +1,7 @@
-import { useState } from "react";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter, DialogDescription } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
 import { useToast } from "@/hooks/use-toast";
-import { apiRequest, queryClient } from "@/lib/queryClient";
-import { FileNode } from "@shared/schema";
+import { FileNode } from "@/lib/local-storage";
 import { AlertTriangle } from "lucide-react";
 
 interface DeleteDialogProps {
@@ -15,7 +13,6 @@ interface DeleteDialogProps {
 
 export function DeleteDialog({ open, onOpenChange, node, onSuccess }: DeleteDialogProps) {
   const { toast } = useToast();
-  const [isDeleting, setIsDeleting] = useState(false);
 
   const handleDelete = () => {
     if (!node) return;
@@ -52,7 +49,6 @@ export function DeleteDialog({ open, onOpenChange, node, onSuccess }: DeleteDial
           <Button 
             variant="destructive" 
             onClick={handleDelete} 
-            disabled={isDeleting}
             data-testid="button-delete-confirm"
           >
             Delete

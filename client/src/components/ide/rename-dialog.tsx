@@ -4,8 +4,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { useToast } from "@/hooks/use-toast";
-import { apiRequest, queryClient } from "@/lib/queryClient";
-import { FileNode } from "@shared/schema";
+import { FileNode } from "@/lib/local-storage";
 
 interface RenameDialogProps {
   open: boolean;
@@ -17,7 +16,6 @@ interface RenameDialogProps {
 export function RenameDialog({ open, onOpenChange, node, onSuccess }: RenameDialogProps) {
   const { toast } = useToast();
   const [name, setName] = useState('');
-  const [isRenaming, setIsRenaming] = useState(false);
 
   useEffect(() => {
     if (node) {
@@ -78,7 +76,7 @@ export function RenameDialog({ open, onOpenChange, node, onSuccess }: RenameDial
           <Button variant="secondary" onClick={() => onOpenChange(false)} data-testid="button-cancel">
             Cancel
           </Button>
-          <Button onClick={handleRename} disabled={isRenaming} data-testid="button-rename">
+          <Button onClick={handleRename} data-testid="button-rename">
             Rename
           </Button>
         </DialogFooter>

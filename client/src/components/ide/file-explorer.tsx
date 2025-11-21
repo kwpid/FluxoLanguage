@@ -1,5 +1,5 @@
 import { useState } from "react";
-import { FileNode } from "@shared/schema";
+import { FileNode } from "@/lib/local-storage";
 import { ChevronRight, ChevronDown, File, Folder, FolderOpen, Plus, FolderPlus, Trash2, Edit2, Package } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import {
@@ -17,7 +17,7 @@ import { DeleteDialog } from "./delete-dialog";
 interface FileExplorerProps {
   fileTree: FileNode[];
   onFileSelect: (path: string) => void;
-  onFileCreate: (path: string, name: string, type: 'file' | 'folder') => void;
+  onFileCreate: (path: string, name: string, type: 'file' | 'folder', initialContent?: string) => void;
   onFileRename: (path: string, newName: string) => void;
   onFileDelete: (path: string) => void;
 }
@@ -227,8 +227,8 @@ export function FileExplorer({ fileTree, onFileSelect, onFileCreate, onFileRenam
         onOpenChange={setCreateDialogOpen}
         parentPath={createParentPath}
         type={createType}
-        onSuccess={(name, type) => {
-          onFileCreate(createParentPath, name, type);
+        onSuccess={(name, type, initialContent) => {
+          onFileCreate(createParentPath, name, type, initialContent);
         }}
       />
 

@@ -126,7 +126,7 @@ class LocalStorageService {
     }
   }
 
-  createFile(workspaceId: string, path: string, name: string, type: 'file' | 'folder'): FileNode | null {
+  createFile(workspaceId: string, path: string, name: string, type: 'file' | 'folder', initialContent?: string): FileNode | null {
     const workspace = this.getWorkspace(workspaceId);
     if (!workspace) return null;
     
@@ -145,7 +145,7 @@ class LocalStorageService {
       type,
       path: fullPath,
       extension,
-      content: type === 'file' ? '' : undefined,
+      content: type === 'file' ? (initialContent ?? '') : undefined,
       children: type === 'folder' ? [] : undefined,
     };
     

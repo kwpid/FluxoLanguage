@@ -5,23 +5,21 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { useToast } from "@/hooks/use-toast";
-import { apiRequest, queryClient } from "@/lib/queryClient";
 
 interface CreateFileDialogProps {
   open: boolean;
   onOpenChange: (open: boolean) => void;
   parentPath: string;
   type: 'file' | 'folder';
-  onSuccess: (name: string, type: 'file' | 'folder') => void;
+  onSuccess: (name: string, type: 'file' | 'folder', initialContent?: string) => void;
 }
 
 export function CreateFileDialog({ open, onOpenChange, parentPath, type, onSuccess }: CreateFileDialogProps) {
   const { toast } = useToast();
   const [name, setName] = useState('');
   const [fileType, setFileType] = useState<string>('.fxo');
-  const [isCreating, setIsCreating] = useState(false);
 
-  const handleCreate = async () => {
+  const handleCreate = () => {
     if (!name.trim()) {
       toast({
         title: "Error",
@@ -34,22 +32,23 @@ export function CreateFileDialog({ open, onOpenChange, parentPath, type, onSucce
     const finalName = type === 'file' ? `${name}${fileType}` : name;
     
     // Auto-generate module template for .fxm files
-    let initialContent = '';
+    let initialContent: string | undefined;
     if (type === 'file' && fileType === '.fxm') {
       const moduleName = name.trim();
       initialContent = `module ${moduleName} {\n    \n}\n`;
+    } else if (type === 'file') {
+      initialContent = '';
     }
-
-    // Note: File creation is now handled by local storage via the parent callback
-    toast({
-      title: "Success",
-      description: `${type === 'file' ? 'File' : 'Folder'} created successfully`,
-    });
 
     setName('');
     setFileType('.fxo');
     onOpenChange(false);
-    onSuccess(finalName, type);
+    onSuccess(finalName, type, initialContent);
+    
+    toast({
+      title: "Success",
+      description: `${type === 'file' ? 'File' : 'Folder'} created successfully`,
+    });
   };
 
   return (
@@ -101,7 +100,7 @@ export function CreateFileDialog({ open, onOpenChange, parentPath, type, onSucce
           <Button variant="secondary" onClick={() => onOpenChange(false)} data-testid="button-cancel">
             Cancel
           </Button>
-          <Button onClick={handleCreate} disabled={isCreating} data-testid="button-create">
+          <Button onClick={handleCreate} data-testid="button-create">
             Create
           </Button>
         </DialogFooter>
