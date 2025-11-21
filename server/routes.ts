@@ -158,6 +158,16 @@ export async function registerRoutes(app: Express): Promise<Server> {
     limits: { fileSize: 50 * 1024 * 1024 }
   });
 
+  const detectFluxoFileType = (content: string): '.fxm' | '.fxo' => {
+    const trimmedContent = content.trim();
+    const modulePattern = /^module\s+\([^)]+\)\s*\{/;
+    
+    if (modulePattern.test(trimmedContent)) {
+      return '.fxm';
+    }
+    return '.fxo';
+  };
+
   app.post('/api/workspaces/import', upload.single('file'), async (req, res) => {
     try {
       if (!req.file) {
@@ -200,9 +210,15 @@ export async function registerRoutes(app: Express): Promise<Server> {
                 let fileName = pathParts[i];
                 const originalFilePath = file.name;
                 
-                if (fileName.endsWith('.txt') && extensionMap[originalFilePath]) {
+                if (fileName.endsWith('.txt')) {
                   const withoutTxt = fileName.substring(0, fileName.length - 4);
-                  fileName = withoutTxt + extensionMap[originalFilePath];
+                  
+                  if (extensionMap[originalFilePath]) {
+                    fileName = withoutTxt + extensionMap[originalFilePath];
+                  } else {
+                    const detectedExtension = detectFluxoFileType(content);
+                    fileName = withoutTxt + detectedExtension;
+                  }
                 }
                 
                 const updatedPath = '/' + pathParts.slice(0, i).concat(fileName).join('/');
