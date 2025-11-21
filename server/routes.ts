@@ -320,6 +320,70 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
+  app.get('/api/files/download', async (req, res) => {
+    try {
+      const path = req.query.path as string;
+      if (!path) {
+        return res.status(400).json({ error: 'Path is required' });
+      }
+
+      const fileTree = await storage.getFileTree();
+      
+      const findNode = (nodes: FileNode[], targetPath: string): FileNode | null => {
+        for (const node of nodes) {
+          if (node.path === targetPath) return node;
+          if (node.children) {
+            const found = findNode(node.children, targetPath);
+            if (found) return found;
+          }
+        }
+        return null;
+      };
+      
+      const node = findNode(fileTree, path);
+      if (!node) {
+        return res.status(404).json({ error: 'File or folder not found' });
+      }
+      
+      if (node.type === 'file') {
+        const content = node.content || '';
+        const fileName = node.name;
+        
+        res.setHeader('Content-Type', 'text/plain');
+        res.setHeader('Content-Disposition', `attachment; filename="${fileName}"`);
+        res.send(content);
+      } else if (node.type === 'folder') {
+        const zip = new JSZip();
+        
+        const addFilesToZip = (nodes: FileNode[], currentPath: string = '') => {
+          for (const fileNode of nodes) {
+            if (fileNode.type === 'file' && fileNode.content !== undefined) {
+              const filePath = currentPath ? `${currentPath}/${fileNode.name}` : fileNode.name;
+              zip.file(filePath, fileNode.content);
+            } else if (fileNode.type === 'folder' && fileNode.children) {
+              const folderPath = currentPath ? `${currentPath}/${fileNode.name}` : fileNode.name;
+              addFilesToZip(fileNode.children, folderPath);
+            }
+          }
+        };
+        
+        if (node.children) {
+          addFilesToZip(node.children);
+        }
+        
+        const zipBuffer = await zip.generateAsync({ type: 'nodebuffer' });
+        const sanitizedName = node.name.replace(/[^a-zA-Z0-9-_]/g, '_');
+        
+        res.setHeader('Content-Type', 'application/zip');
+        res.setHeader('Content-Disposition', `attachment; filename="${sanitizedName}.zip"`);
+        res.send(zipBuffer);
+      }
+    } catch (error: any) {
+      console.error('Failed to download file/folder:', error);
+      res.status(500).json({ error: error.message || 'Failed to download file/folder' });
+    }
+  });
+
   app.post('/api/files/create', async (req, res) => {
     try {
       

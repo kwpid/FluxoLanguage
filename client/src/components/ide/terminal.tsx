@@ -600,9 +600,50 @@ export function Terminal() {
       return;
     }
 
-    const targetPath = resolvePath(args[0]);
-
     try {
+      const targetPath = resolvePath(args[0]);
+      const parts = targetPath.split('/').filter(p => p);
+      const name = parts.pop() || '';
+      
+      if (!name) {
+        addLine('error', 'rm: Invalid path');
+        return;
+      }
+      
+      const parentPath = parts.length > 0 ? '/' + parts.join('/') : '/';
+      
+      if (parentPath !== '/') {
+        const treeResponse = await fetch('/api/files/tree');
+        
+        if (!treeResponse.ok) {
+          addLine('error', 'rm: Failed to verify parent directory');
+          return;
+        }
+        
+        const fileTree = await treeResponse.json();
+        
+        const findPath = (nodes: any[], path: string): any | null => {
+          for (const node of nodes) {
+            if (node.path === path) return node;
+            if (node.children) {
+              const found = findPath(node.children, path);
+              if (found) return found;
+            }
+          }
+          return null;
+        };
+        
+        const parent = findPath(fileTree, parentPath);
+        if (!parent) {
+          addLine('error', `rm: ${parentPath}: No such directory`);
+          return;
+        }
+        if (parent.type !== 'folder') {
+          addLine('error', `rm: ${parentPath}: Not a directory`);
+          return;
+        }
+      }
+
       const response = await apiRequest('POST', '/api/files/delete', {
         path: targetPath,
       });
@@ -628,8 +669,19 @@ export function Terminal() {
       const response = await fetch('/api/workspaces/download');
       
       if (!response.ok) {
-        const error = await response.json();
-        addLine('error', `export: ${error.error || 'Failed to export workspace'}`);
+        const text = await response.text();
+        let errorMessage = `HTTP ${response.status}: ${response.statusText}`;
+        
+        if (text) {
+          try {
+            const error = JSON.parse(text);
+            errorMessage = error.error || errorMessage;
+          } catch {
+            errorMessage = text || errorMessage;
+          }
+        }
+        
+        addLine('error', `export: ${errorMessage}`);
         return;
       }
       
@@ -660,26 +712,30 @@ export function Terminal() {
 
     try {
       const targetPath = resolvePath(args[0]);
-      const response = await fetch(`/api/files/content?path=${encodeURIComponent(targetPath)}`);
+      const response = await fetch(`/api/files/download?path=${encodeURIComponent(targetPath)}`);
       
       if (!response.ok) {
+        const text = await response.text();
         let errorMessage = `HTTP ${response.status}: ${response.statusText}`;
-        try {
-          const error = await response.json();
-          errorMessage = error.error || errorMessage;
-        } catch {
-          const text = await response.text();
-          if (text) errorMessage = text;
+        
+        if (text) {
+          try {
+            const error = JSON.parse(text);
+            errorMessage = error.error || errorMessage;
+          } catch {
+            errorMessage = text || errorMessage;
+          }
         }
+        
         addLine('error', `download: ${errorMessage}`);
         return;
       }
 
-      const data = await response.json();
-      const parts = targetPath.split('/').filter(p => p);
-      const fileName = parts[parts.length - 1] || 'download.txt';
+      const blob = await response.blob();
+      const contentDisposition = response.headers.get('Content-Disposition');
+      const filenameMatch = contentDisposition?.match(/filename="(.+)"/);
+      const fileName = filenameMatch ? filenameMatch[1] : 'download';
       
-      const blob = new Blob([data.content], { type: 'text/plain' });
       const link = document.createElement('a');
       link.href = URL.createObjectURL(blob);
       link.download = fileName;
