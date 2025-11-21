@@ -7,11 +7,9 @@ import type { IStorage } from "./storage";
 export class SupabaseStorage implements IStorage {
   private userId: string;
   private supabase: SupabaseClient<Database>;
-  private currentWorkspaceId: string | null = null;
 
-  constructor(userId: string, accessToken?: string, initialWorkspaceId?: string | null) {
+  constructor(userId: string, accessToken?: string) {
     this.userId = userId;
-    this.currentWorkspaceId = initialWorkspaceId || null;
     
     if (accessToken) {
       this.supabase = createClient<Database>(
@@ -48,6 +46,7 @@ export class SupabaseStorage implements IStorage {
           name: 'Main Workspace',
           open_tabs: ['/README.fxo'],
           active_tab: '/README.fxo',
+          is_current: true,
         })
         .select()
         .single();
@@ -135,8 +134,16 @@ console.log("Explore the scripts/ and modules/ folders to learn more")
   }
 
   private async getDefaultWorkspaceId(): Promise<string> {
-    if (this.currentWorkspaceId) {
-      return this.currentWorkspaceId;
+    const { data: currentWorkspace } = await this.supabase
+      .from('workspaces')
+      .select('id')
+      .eq('user_id', this.userId)
+      .eq('is_current', true)
+      .limit(1)
+      .single();
+
+    if (currentWorkspace) {
+      return currentWorkspace.id;
     }
 
     const { data: workspaces } = await this.supabase
@@ -147,12 +154,15 @@ console.log("Explore the scripts/ and modules/ folders to learn more")
       .limit(1);
 
     if (!workspaces || workspaces.length === 0) {
-      this.currentWorkspaceId = await this.ensureDefaultWorkspace();
-      return this.currentWorkspaceId;
+      return await this.ensureDefaultWorkspace();
     }
 
-    this.currentWorkspaceId = workspaces[0].id;
-    return this.currentWorkspaceId;
+    await this.supabase
+      .from('workspaces')
+      .update({ is_current: true })
+      .eq('id', workspaces[0].id);
+
+    return workspaces[0].id;
   }
 
   private async buildFileTree(workspaceId: string): Promise<FileNode[]> {
@@ -218,6 +228,7 @@ console.log("Explore the scripts/ and modules/ folders to learn more")
         name,
         open_tabs: [],
         active_tab: null,
+        is_current: true,
       })
       .select()
       .single();
@@ -235,19 +246,24 @@ console.log("Explore the scripts/ and modules/ folders to learn more")
   }
 
   async switchWorkspace(workspaceId: string): Promise<void> {
-    const { data } = await this.supabase
+    const { data, error: selectError } = await this.supabase
       .from('workspaces')
       .select('id')
       .eq('id', workspaceId)
       .eq('user_id', this.userId)
       .single();
 
-    if (!data) {
+    if (selectError || !data) {
       throw new Error('Workspace not found or access denied');
     }
 
-    // Actually switch to the new workspace
-    this.currentWorkspaceId = workspaceId;
+    const { error: updateError } = await this.supabase
+      .from('workspaces')
+      .update({ is_current: true })
+      .eq('id', workspaceId)
+      .eq('user_id', this.userId);
+
+    if (updateError) throw updateError;
   }
 
   async deleteWorkspace(workspaceId: string): Promise<void> {
@@ -256,13 +272,22 @@ console.log("Explore the scripts/ and modules/ folders to learn more")
       throw new Error('Cannot delete the last workspace');
     }
 
-    const { error } = await this.supabase
+    const { error: deleteError } = await this.supabase
       .from('workspaces')
       .delete()
       .eq('id', workspaceId)
       .eq('user_id', this.userId);
 
-    if (error) throw error;
+    if (deleteError) throw deleteError;
+
+    const remainingWorkspaces = workspaces.filter(w => w.id !== workspaceId);
+    if (remainingWorkspaces.length > 0) {
+      await this.supabase
+        .from('workspaces')
+        .update({ is_current: true })
+        .eq('id', remainingWorkspaces[0].id)
+        .eq('user_id', this.userId);
+    }
   }
 
   async getWorkspace(): Promise<WorkspaceState> {

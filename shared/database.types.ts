@@ -16,6 +16,7 @@ export interface Database {
           name: string
           open_tabs: string[]
           active_tab: string | null
+          is_current: boolean
           created_at: string
           updated_at: string
         }
@@ -25,6 +26,7 @@ export interface Database {
           name: string
           open_tabs?: string[]
           active_tab?: string | null
+          is_current?: boolean
           created_at?: string
           updated_at?: string
         }
@@ -34,6 +36,7 @@ export interface Database {
           name?: string
           open_tabs?: string[]
           active_tab?: string | null
+          is_current?: boolean
           created_at?: string
           updated_at?: string
         }
