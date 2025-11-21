@@ -375,7 +375,7 @@ export class FluxoInterpreter {
           
           const loadedModule = this.context.modules.get(moduleName);
           if (loadedModule) {
-            // Create an object with all exports
+            // Create an object with all exports - this will be the ONLY thing added to context
             const exportedObject: any = {};
             
             loadedModule.exports.forEach((item, name) => {
@@ -385,16 +385,13 @@ export class FluxoInterpreter {
                   return this.executeFunction(item, args);
                 };
               } else {
-                // It's a variable - resolve if it's a path reference
-                if (typeof item === 'string' && this.context.variables.has(item)) {
-                  exportedObject[name] = this.context.variables.get(item);
-                } else {
-                  exportedObject[name] = item;
-                }
+                // It's a variable - just use the value directly
+                exportedObject[name] = item;
               }
             });
             
-            // Assign the object to the identifier
+            // IMPORTANT: Only add the alias object to context, NOT individual exports
+            // This prevents global scope pollution
             this.context.variables.set(identifier, exportedObject);
           } else {
             throw new Error(
@@ -430,10 +427,44 @@ export class FluxoInterpreter {
 
       const moduleContent = await storage.getFileContent(moduleFilePath);
       if (moduleContent) {
-        try {
-          await this.loadModule(moduleContent, moduleFilePath);
-        } catch (error: any) {
-          throw new Error(`Failed to load module from ${moduleFilePath}: ${error.message}`);
+        // Load the module if not already loaded
+        const moduleMatch = moduleContent.match(/module\s+(\w+)\s*\{/);
+        if (moduleMatch) {
+          const moduleName = moduleMatch[1];
+          
+          // Check if module is already loaded
+          if (!this.context.modules.has(moduleName)) {
+            try {
+              await this.loadModule(moduleContent, moduleFilePath);
+            } catch (error: any) {
+              throw new Error(`Failed to load module from ${moduleFilePath}: ${error.message}`);
+            }
+          }
+          
+          // After loading, make the module accessible via its name (for backward compatibility with import())
+          const loadedModule = this.context.modules.get(moduleName);
+          if (loadedModule) {
+            const moduleProxy: any = {};
+            loadedModule.exports.forEach((item, name) => {
+              if (typeof item === 'object' && item.params !== undefined) {
+                // It's a function
+                moduleProxy[name] = (...args: any[]) => {
+                  return this.executeFunction(item, args);
+                };
+              } else {
+                // It's a variable
+                moduleProxy[name] = item;
+              }
+            });
+            
+            // Add to global scope only for require() and import() (legacy behavior)
+            this.context.variables.set(moduleName, moduleProxy);
+          }
+        } else {
+          throw new Error(
+            `Invalid module file: ${moduleFilePath}\n` +
+            `Expected format: module moduleName { ... }`
+          );
         }
       } else {
         const suggestion = fullPath.endsWith('.fxm') ? '' : `\nDid you mean: "${modulePath}.fxm"?`;
@@ -620,25 +651,12 @@ export class FluxoInterpreter {
     }
 
     this.context.modules.set(moduleName, moduleObj);
-
-    const moduleProxy: any = {};
-    moduleObj.exports.forEach((item, name) => {
-      if (typeof item === 'object' && item.params !== undefined) {
-        // It's a function
-        moduleProxy[name] = (...args: any[]) => {
-          return this.executeFunction(item, args);
-        };
-      } else {
-        // It's a variable
-        moduleProxy[name] = item;
-      }
-    });
-
-    this.context.variables.set(moduleName, moduleProxy);
     
-    if (typeof globalThis !== 'undefined') {
-      (globalThis as any)[moduleName] = moduleProxy;
-    }
+    // Note: We no longer add modules to global scope automatically
+    // Modules must be explicitly imported using:
+    // - import from "module" { exports } (selective import)
+    // - import alias "module" (import all as object)
+    // - require("module") (legacy, for backward compatibility)
   }
 
   private async executeModuleBody(body: string, moduleObj: FluxoModule) {
