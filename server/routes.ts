@@ -452,6 +452,8 @@ export async function registerRoutes(app: Express): Promise<Server> {
   app.post('/api/execute', async (req, res) => {
     try {
       const data = executeCodeRequestSchema.parse(req.body);
+      // Clear module cache before individual file execution
+      FluxoInterpreter.clearModuleCache();
       const interpreter = new FluxoInterpreter(data.path);
       const isHtmlFile = data.path.endsWith('.html') || data.path.endsWith('.htm');
       const output = await interpreter.execute(data.code, isHtmlFile);
@@ -504,6 +506,9 @@ export async function registerRoutes(app: Express): Promise<Server> {
           await storage.updateFile(file.path, file.code);
         }
       }
+      
+      // Clear module cache before workspace execution to ensure clean runs
+      FluxoInterpreter.clearModuleCache();
       
       // Create a shared interpreter context using the entry point
       const interpreter = new FluxoInterpreter(data.entryPoint);

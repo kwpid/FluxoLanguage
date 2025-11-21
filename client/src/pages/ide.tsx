@@ -352,89 +352,97 @@ export default function IDE() {
         isRunning={isRunning}
       />
 
-      <ResizablePanelGroup direction="horizontal" className="flex-1">
-        <ResizablePanel defaultSize={20} minSize={15} maxSize={30}>
-          <FileExplorer
-            fileTree={workspace.fileTree}
-            onFileSelect={openFile}
-            onFileCreate={(path, name, type, initialContent) => {
-              if (workspace) {
-                localStorageService.createFile(workspace.id, path, name, type, initialContent);
-                refreshFileTree();
-              }
-            }}
-            onFileRename={(path, newName) => {
-              if (workspace) {
-                const success = localStorageService.renameFile(workspace.id, path, newName);
-                if (success) {
-                  refreshFileTree();
-                  
-                  // Update open tabs if the renamed file was open
-                  const parentPath = path.substring(0, path.lastIndexOf('/'));
-                  const newPath = parentPath === '' ? `/${newName}` : `${parentPath}/${newName}`;
-                  
-                  if (openTabs.includes(path)) {
-                    setOpenTabs(prev => prev.map(p => p === path ? newPath : p));
-                    if (activeTab === path) {
-                      setActiveTab(newPath);
-                    }
-                    if (fileContents[path]) {
-                      setFileContents(prev => {
-                        const newContents = { ...prev };
-                        newContents[newPath] = newContents[path];
-                        delete newContents[path];
-                        return newContents;
-                      });
+      <ResizablePanelGroup direction="vertical" className="flex-1 h-full">
+        <ResizablePanel defaultSize={75} minSize={50} className="flex-1">
+          <ResizablePanelGroup direction="horizontal" className="h-full">
+            <ResizablePanel defaultSize={20} minSize={15} maxSize={30}>
+              <FileExplorer
+                fileTree={workspace.fileTree}
+                onFileSelect={openFile}
+                onFileCreate={(path, name, type, initialContent) => {
+                  if (workspace) {
+                    localStorageService.createFile(workspace.id, path, name, type, initialContent);
+                    refreshFileTree();
+                  }
+                }}
+                onFileRename={(path, newName) => {
+                  if (workspace) {
+                    const success = localStorageService.renameFile(workspace.id, path, newName);
+                    if (success) {
+                      refreshFileTree();
+                      
+                      // Update open tabs if the renamed file was open
+                      const parentPath = path.substring(0, path.lastIndexOf('/'));
+                      const newPath = parentPath === '' ? `/${newName}` : `${parentPath}/${newName}`;
+                      
+                      if (openTabs.includes(path)) {
+                        setOpenTabs(prev => prev.map(p => p === path ? newPath : p));
+                        if (activeTab === path) {
+                          setActiveTab(newPath);
+                        }
+                        if (fileContents[path]) {
+                          setFileContents(prev => {
+                            const newContents = { ...prev };
+                            newContents[newPath] = newContents[path];
+                            delete newContents[path];
+                            return newContents;
+                          });
+                        }
+                      }
                     }
                   }
-                }
-              }
-            }}
-            onFileDelete={(path) => {
-              if (workspace) {
-                const success = localStorageService.deleteFile(workspace.id, path);
-                if (success) {
-                  refreshFileTree();
-                  
-                  // Close tab if the deleted file was open
-                  if (openTabs.includes(path)) {
-                    closeTab(path);
+                }}
+                onFileDelete={(path) => {
+                  if (workspace) {
+                    const success = localStorageService.deleteFile(workspace.id, path);
+                    if (success) {
+                      refreshFileTree();
+                      
+                      // Close tab if the deleted file was open
+                      if (openTabs.includes(path)) {
+                        closeTab(path);
+                      }
+                    }
                   }
-                }
-              }
-            }}
-          />
+                }}
+              />
+            </ResizablePanel>
+
+            <ResizableHandle />
+
+            <ResizablePanel defaultSize={50} minSize={30}>
+              <EditorPanel
+                openTabs={openTabs}
+                activeTab={activeTab}
+                fileContents={fileContents}
+                unsavedFiles={unsavedFiles}
+                onTabClick={setActiveTab}
+                onTabClose={closeTab}
+                onContentChange={updateFileContent}
+              />
+            </ResizablePanel>
+
+            <ResizableHandle />
+
+            <ResizablePanel defaultSize={30} minSize={20}>
+              <OutputPanel
+                output={output}
+                onClear={() => setOutput([])}
+                activeFile={activeTab}
+                fileContents={fileContents}
+                onSourceClick={handleSourceClick}
+                extensions={extensions}
+              />
+            </ResizablePanel>
+          </ResizablePanelGroup>
         </ResizablePanel>
 
         <ResizableHandle />
 
-        <ResizablePanel defaultSize={50} minSize={30}>
-          <EditorPanel
-            openTabs={openTabs}
-            activeTab={activeTab}
-            fileContents={fileContents}
-            unsavedFiles={unsavedFiles}
-            onTabClick={setActiveTab}
-            onTabClose={closeTab}
-            onContentChange={updateFileContent}
-          />
-        </ResizablePanel>
-
-        <ResizableHandle />
-
-        <ResizablePanel defaultSize={30} minSize={20}>
-          <OutputPanel
-            output={output}
-            onClear={() => setOutput([])}
-            activeFile={activeTab}
-            fileContents={fileContents}
-            onSourceClick={handleSourceClick}
-            extensions={extensions}
-          />
+        <ResizablePanel defaultSize={25} minSize={15} maxSize={50}>
+          <Terminal />
         </ResizablePanel>
       </ResizablePanelGroup>
-
-      <Terminal />
     </div>
   );
 }

@@ -267,6 +267,63 @@ export class FluxoInterpreter {
     return pos;
   }
 
+  // Helper to normalize module paths to absolute paths with canonical resolution
+  private normalizeModulePath(modulePath: string, importingFilePath: string): string {
+    let fullPath: string;
+    
+    // Handle absolute paths
+    if (modulePath.startsWith('/')) {
+      fullPath = modulePath;
+    } 
+    // Handle relative paths (./module or ../module)
+    else if (modulePath.startsWith('./') || modulePath.startsWith('../')) {
+      // Get directory of importing file
+      const lastSlash = importingFilePath.lastIndexOf('/');
+      const importingDir = lastSlash > 0 ? importingFilePath.substring(0, lastSlash) : '/';
+      
+      // Combine paths without stripping ./ to preserve relative semantics
+      // Add separator only if importingDir is not root
+      if (importingDir === '/') {
+        fullPath = importingDir + modulePath;
+      } else {
+        fullPath = importingDir + '/' + modulePath;
+      }
+    }
+    // Default to root-relative
+    else {
+      fullPath = '/' + modulePath;
+    }
+    
+    // Normalize path: remove duplicate slashes, resolve . and ..
+    const segments = fullPath.split('/');
+    const normalized: string[] = [];
+    
+    for (const segment of segments) {
+      if (!segment || segment === '.') {
+        // Skip empty segments (from //) and current directory markers
+        continue;
+      } else if (segment === '..') {
+        // Go up one directory if possible
+        if (normalized.length > 0) {
+          normalized.pop();
+        }
+        // Silently ignore .. at root
+      } else {
+        normalized.push(segment);
+      }
+    }
+    
+    // Rebuild canonical path
+    const canonicalPath = normalized.length > 0 ? '/' + normalized.join('/') : '/';
+    
+    // Add .fxm extension if not present
+    if (!canonicalPath.endsWith('.fxm') && !canonicalPath.endsWith('.fxo')) {
+      return canonicalPath + '.fxm';
+    }
+    
+    return canonicalPath;
+  }
+
   private async parseImportFrom(code: string, pos: number): Promise<number> {
     // Support both syntaxes:
     // 1. import from "fileName" { var1, var2 } (original)
@@ -290,8 +347,8 @@ export class FluxoInterpreter {
         importList = match[2].split(',').map(name => name.trim()).filter(n => n);
       }
       
-      const fullPath = modulePath.startsWith('/') ? modulePath : `/${modulePath}`;
-      const moduleFilePath = fullPath.endsWith('.fxm') ? fullPath : `${fullPath}.fxm`;
+      // Normalize the module path to handle relative imports
+      const moduleFilePath = this.normalizeModulePath(modulePath, this.currentFilePath);
 
       // Check global cache first
       let loadedModule: FluxoModule | undefined;
@@ -322,7 +379,7 @@ export class FluxoInterpreter {
             );
           }
         } else {
-          const suggestion = fullPath.endsWith('.fxm') ? '' : `\nDid you mean: "${modulePath}.fxm"?`;
+          const suggestion = moduleFilePath.endsWith('.fxm') ? '' : `\nDid you mean: "${modulePath}.fxm"?`;
           throw new Error(
             `Module not found: ${moduleFilePath}\n` +
             `Make sure the file exists in your workspace.${suggestion}`
@@ -333,18 +390,19 @@ export class FluxoInterpreter {
       if (loadedModule) {
         const notFoundExports: string[] = [];
         
-        // Import only the specified variables/functions (by reference)
+        // Import only the specified variables/functions
+        // Create deep clones of values to prevent mutation across imports
         importList.forEach(name => {
           if (loadedModule!.exports.has(name)) {
             const exported = loadedModule!.exports.get(name);
             if (typeof exported === 'object' && exported.params !== undefined) {
-              // It's a function - create wrapper
+              // It's a function - create wrapper (functions are immutable so no cloning needed)
               this.context.variables.set(name, (...args: any[]) => {
                 return this.executeFunction(exported, args);
               });
             } else {
-              // It's a variable - reference it directly (not a copy!)
-              this.context.variables.set(name, exported);
+              // It's a variable - clone it to prevent mutation
+              this.context.variables.set(name, this.cloneValue(exported));
             }
           } else {
             notFoundExports.push(name);
@@ -365,6 +423,63 @@ export class FluxoInterpreter {
     }
     return pos + 1;
   }
+  
+  // Helper to deep clone values with cycle detection and function preservation
+  private cloneValue(value: any, visited: WeakMap<any, any> = new WeakMap()): any {
+    // Primitives and null/undefined
+    if (value === null || value === undefined) return value;
+    if (typeof value !== 'object') return value;
+    
+    // Functions should not be cloned - return as-is
+    if (typeof value === 'function') return value;
+    
+    // Check for cycles - if we've seen this object, return the clone we made
+    if (visited.has(value)) {
+      return visited.get(value);
+    }
+    
+    // Handle arrays
+    if (Array.isArray(value)) {
+      const cloned: any[] = [];
+      visited.set(value, cloned); // Register before recursing to handle cycles
+      for (const item of value) {
+        cloned.push(this.cloneValue(item, visited));
+      }
+      return cloned;
+    }
+    
+    // Handle Map
+    if (value instanceof Map) {
+      const cloned = new Map();
+      visited.set(value, cloned);
+      value.forEach((v, k) => {
+        cloned.set(k, this.cloneValue(v, visited));
+      });
+      return cloned;
+    }
+    
+    // Handle Set
+    if (value instanceof Set) {
+      const cloned = new Set();
+      visited.set(value, cloned);
+      value.forEach(v => {
+        cloned.add(this.cloneValue(v, visited));
+      });
+      return cloned;
+    }
+    
+    // Handle plain objects
+    const cloned: any = {};
+    visited.set(value, cloned); // Register before recursing
+    
+    for (const key in value) {
+      if (value.hasOwnProperty(key)) {
+        cloned[key] = this.cloneValue(value[key], visited);
+      }
+    }
+    
+    return cloned;
+  }
 
   private async parseImportAll(code: string, pos: number): Promise<number> {
     // New syntax: import <identifier> "path"
@@ -375,15 +490,13 @@ export class FluxoInterpreter {
       const identifier = match[1];
       const modulePath = match[2];
       
-      const fullPath = modulePath.startsWith('/') ? modulePath : `/${modulePath}`;
-      
-      // Try to load as a file first
-      let moduleFilePath = fullPath.endsWith('.fxm') ? fullPath : `${fullPath}.fxm`;
+      // Normalize the module path to handle relative imports
+      let moduleFilePath = this.normalizeModulePath(modulePath, this.currentFilePath);
       let moduleContent = await storage.getFileContent(moduleFilePath);
       
       // If not found as .fxm, try .fxo
-      if (!moduleContent) {
-        moduleFilePath = fullPath.endsWith('.fxo') ? fullPath : `${fullPath}.fxo`;
+      if (!moduleContent && moduleFilePath.endsWith('.fxm')) {
+        moduleFilePath = moduleFilePath.replace(/\.fxm$/, '.fxo');
         moduleContent = await storage.getFileContent(moduleFilePath);
       }
       
@@ -413,7 +526,7 @@ export class FluxoInterpreter {
           );
         }
       } else {
-        const suggestion = fullPath.endsWith('.fxm') || fullPath.endsWith('.fxo') ? '' : `\nDid you mean: "${modulePath}.fxm"?`;
+        const suggestion = moduleFilePath.endsWith('.fxm') || moduleFilePath.endsWith('.fxo') ? '' : `\nDid you mean: "${modulePath}.fxm"?`;
         throw new Error(
           `Module not found: ${modulePath}\n` +
           `Make sure the file exists in your workspace.${suggestion}`
@@ -421,18 +534,18 @@ export class FluxoInterpreter {
       }
       
       if (loadedModule) {
-        // Create an object with all exports - this will be the ONLY thing added to context
+        // Create an object with all exports - clone values to prevent mutation
         const exportedObject: any = {};
         
         loadedModule.exports.forEach((item, name) => {
           if (typeof item === 'object' && item.params !== undefined) {
-            // It's a function - create wrapper
+            // It's a function - create wrapper (functions are immutable)
             exportedObject[name] = (...args: any[]) => {
               return this.executeFunction(item, args);
             };
           } else {
-            // It's a variable - reference directly (not a copy!)
-            exportedObject[name] = item;
+            // It's a variable - clone it to prevent mutation
+            exportedObject[name] = this.cloneValue(item);
           }
         });
         
@@ -450,8 +563,8 @@ export class FluxoInterpreter {
     const match = code.substring(pos).match(/require\("([^"]+)"\)/);
     if (match) {
       const modulePath = match[1];
-      const fullPath = modulePath.startsWith('/') ? modulePath : `/${modulePath}`;
-      const moduleFilePath = fullPath.endsWith('.fxm') ? fullPath : `${fullPath}.fxm`;
+      // Normalize the module path to handle relative imports
+      const moduleFilePath = this.normalizeModulePath(modulePath, this.currentFilePath);
 
       // Check global cache first
       let loadedModule: FluxoModule | undefined;
@@ -481,7 +594,7 @@ export class FluxoInterpreter {
             );
           }
         } else {
-          const suggestion = fullPath.endsWith('.fxm') ? '' : `\nDid you mean: "${modulePath}.fxm"?`;
+          const suggestion = moduleFilePath.endsWith('.fxm') ? '' : `\nDid you mean: "${modulePath}.fxm"?`;
           throw new Error(
             `Module not found: ${moduleFilePath}\n` +
             `Make sure the file exists in your workspace.${suggestion}`
@@ -493,13 +606,13 @@ export class FluxoInterpreter {
         const moduleProxy: any = {};
         loadedModule.exports.forEach((item, name) => {
           if (typeof item === 'object' && item.params !== undefined) {
-            // It's a function
+            // It's a function - create wrapper (functions are immutable)
             moduleProxy[name] = (...args: any[]) => {
               return this.executeFunction(item, args);
             };
           } else {
-            // It's a variable - reference directly (not a copy!)
-            moduleProxy[name] = item;
+            // It's a variable - clone it to prevent mutation
+            moduleProxy[name] = this.cloneValue(item);
           }
         });
         
