@@ -381,13 +381,16 @@ console.log("Explore the scripts/ and modules/ folders to learn more")
   async moveFile(sourcePath: string, targetPath: string): Promise<void> {
     const workspace = this.getCurrentWorkspace();
     const sourceNode = this.findNode(sourcePath);
-    const targetNode = this.findNode(targetPath);
     
     if (!sourceNode) {
       throw new Error('Source file not found');
     }
     
-    if (!targetNode || targetNode.type !== 'folder') {
+    // Handle root path specially
+    const isTargetRoot = targetPath === '/';
+    const targetNode = isTargetRoot ? null : this.findNode(targetPath);
+    
+    if (!isTargetRoot && (!targetNode || targetNode.type !== 'folder')) {
       throw new Error('Target must be a folder');
     }
     
@@ -395,19 +398,27 @@ console.log("Explore the scripts/ and modules/ folders to learn more")
       throw new Error('Cannot move a folder into itself');
     }
     
+    // Remove from current location
     this.deleteNodeFromTree(sourcePath, workspace.fileTree);
     
-    const newPath = `${targetPath}/${sourceNode.name}`;
+    // Update the node's path
+    const newPath = isTargetRoot ? `/${sourceNode.name}` : `${targetPath}/${sourceNode.name}`;
     sourceNode.path = newPath;
     
+    // Update children paths recursively
     if (sourceNode.children) {
       this.updateChildrenPaths(sourceNode.children, newPath);
     }
     
-    if (targetNode.children) {
-      targetNode.children.push(sourceNode);
-    } else {
-      targetNode.children = [sourceNode];
+    // Add to target location
+    if (isTargetRoot) {
+      workspace.fileTree.push(sourceNode);
+    } else if (targetNode) {
+      if (targetNode.children) {
+        targetNode.children.push(sourceNode);
+      } else {
+        targetNode.children = [sourceNode];
+      }
     }
     
     this.updateOpenTabPaths(sourcePath, newPath);

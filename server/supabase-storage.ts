@@ -500,7 +500,8 @@ console.log("Explore the scripts/ and modules/ folders to learn more")
 
     if (!sourceFile) throw new Error('Source file not found');
 
-    const newPath = `${targetPath}/${sourceFile.name}`;
+    // Handle root path specially to avoid double slashes
+    const newPath = targetPath === '/' ? `/${sourceFile.name}` : `${targetPath}/${sourceFile.name}`;
 
     const { error } = await this.supabase
       .from('files')
