@@ -180,6 +180,11 @@ export class FluxoInterpreter {
 
       if (code.substring(pos).startsWith('import from ')) {
         pos = await this.parseImportFrom(code, pos);
+      } else if (code.substring(pos).startsWith('import {')) {
+        pos = await this.parseImportFrom(code, pos);
+      } else if (code.substring(pos).startsWith('import ')) {
+        // New syntax: import <identifier> "path"
+        pos = await this.parseImportAll(code, pos);
       } else if (code.substring(pos).startsWith('require(')) {
         pos = await this.parseRequire(code, pos);
       } else if (code.substring(pos).startsWith('module folder ')) {
@@ -323,6 +328,90 @@ export class FluxoInterpreter {
         const suggestion = fullPath.endsWith('.fxm') ? '' : `\nDid you mean: "${modulePath}.fxm"?`;
         throw new Error(
           `Module not found: ${moduleFilePath}\n` +
+          `Make sure the file exists in your workspace.${suggestion}`
+        );
+      }
+
+      return pos + match[0].length;
+    }
+    return pos + 1;
+  }
+
+  private async parseImportAll(code: string, pos: number): Promise<number> {
+    // New syntax: import <identifier> "path"
+    // This imports ALL exports from a file/folder and assigns to the identifier
+    const match = code.substring(pos).match(/import\s+(\w+)\s+"([^"]+)"/);
+    
+    if (match) {
+      const identifier = match[1];
+      const modulePath = match[2];
+      
+      const fullPath = modulePath.startsWith('/') ? modulePath : `/${modulePath}`;
+      
+      // Try to load as a file first
+      let moduleFilePath = fullPath.endsWith('.fxm') ? fullPath : `${fullPath}.fxm`;
+      let moduleContent = await storage.getFileContent(moduleFilePath);
+      
+      // If not found as .fxm, try .fxo
+      if (!moduleContent) {
+        moduleFilePath = fullPath.endsWith('.fxo') ? fullPath : `${fullPath}.fxo`;
+        moduleContent = await storage.getFileContent(moduleFilePath);
+      }
+      
+      if (moduleContent) {
+        // Load the module if not already loaded
+        const moduleMatch = moduleContent.match(/module\s+(\w+)\s*\{/);
+        if (moduleMatch) {
+          const moduleName = moduleMatch[1];
+          
+          // Check if module is already loaded
+          if (!this.context.modules.has(moduleName)) {
+            try {
+              await this.loadModule(moduleContent, moduleFilePath);
+            } catch (error: any) {
+              throw new Error(`Failed to load module '${moduleName}' from ${moduleFilePath}: ${error.message}`);
+            }
+          }
+          
+          const loadedModule = this.context.modules.get(moduleName);
+          if (loadedModule) {
+            // Create an object with all exports
+            const exportedObject: any = {};
+            
+            loadedModule.exports.forEach((item, name) => {
+              if (typeof item === 'object' && item.params !== undefined) {
+                // It's a function - create wrapper
+                exportedObject[name] = (...args: any[]) => {
+                  return this.executeFunction(item, args);
+                };
+              } else {
+                // It's a variable - resolve if it's a path reference
+                if (typeof item === 'string' && this.context.variables.has(item)) {
+                  exportedObject[name] = this.context.variables.get(item);
+                } else {
+                  exportedObject[name] = item;
+                }
+              }
+            });
+            
+            // Assign the object to the identifier
+            this.context.variables.set(identifier, exportedObject);
+          } else {
+            throw new Error(
+              `Failed to load module from ${moduleFilePath}.\n` +
+              `Make sure the file contains a valid module declaration.`
+            );
+          }
+        } else {
+          throw new Error(
+            `Invalid module format in ${moduleFilePath}.\n` +
+            `Make sure the file contains a valid module declaration with 'module name { ... }'.`
+          );
+        }
+      } else {
+        const suggestion = fullPath.endsWith('.fxm') || fullPath.endsWith('.fxo') ? '' : `\nDid you mean: "${modulePath}.fxm"?`;
+        throw new Error(
+          `Module not found: ${modulePath}\n` +
           `Make sure the file exists in your workspace.${suggestion}`
         );
       }
@@ -555,6 +644,10 @@ export class FluxoInterpreter {
   private async executeModuleBody(body: string, moduleObj: FluxoModule) {
     // Execute the module body to collect variables
     // Similar to parseAndExecute but stores in module context
+    // Create a temporary context to evaluate expressions within the module scope
+    const savedVariables = new Map(this.context.variables);
+    const savedFunctions = new Map(this.context.functions);
+    
     let pos = 0;
     while (pos < body.length) {
       pos = this.skipWhitespace(body, pos);
@@ -569,7 +662,8 @@ export class FluxoInterpreter {
           const varName = match[1];
           const value = await this.evaluateExpression(match[2]);
           moduleObj.variables.set(varName, value);
-          this.context.variables.set(varName, value); // Also set in context for evaluation
+          // Temporarily set in context only for evaluation within the module
+          this.context.variables.set(varName, value);
         }
         pos = end;
       } else if (body.substring(pos).startsWith('function ')) {
@@ -594,7 +688,7 @@ export class FluxoInterpreter {
           const funcDef = { params, body: funcBody, hasRestParam };
           // Store functions in moduleObj.variables so they can be exported later with export {}
           moduleObj.variables.set(funcName, funcDef);
-          // Also register in context.functions so they can be called within the module
+          // Temporarily register in context.functions for evaluation within the module
           this.context.functions.set(funcName, funcDef);
           pos = endPos;
         } else {
@@ -604,6 +698,11 @@ export class FluxoInterpreter {
         pos++;
       }
     }
+    
+    // Restore the context to remove module-scoped variables/functions
+    // Only keep variables/functions that were there before
+    this.context.variables = savedVariables;
+    this.context.functions = savedFunctions;
   }
 
   private parseFunctionDeclaration(code: string, pos: number): number {
