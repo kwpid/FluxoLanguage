@@ -1,0 +1,107 @@
+I need you to fix and redesign the module import system for my custom programming language, Fluxo.
+
+Current Problem
+
+Modules (.fxm files) are being re-executed every time they are imported using either:
+
+import("path")
+
+
+or
+
+import from "path" { item }
+
+
+This causes exported variables to reset to their default values on every import, which leads to infinite loops and incorrect behavior.
+
+Goal
+
+Implement a proper module cache system, identical in behavior to Node.js or Python:
+
+A module file should only execute once.
+
+All subsequent imports must return the previously cached exports, without re-running the module code.
+
+Both default imports and specific imports must use the same cached object.
+
+Imported values must be correctly linked so updates persist.
+
+Requirements
+
+You must produce:
+
+1. A database or in-memory system to store module cache
+
+Create a structure like:
+
+ModuleCache = {
+   "path/to/module": {
+       executed: true,
+       exports: { ... }
+   }
+}
+
+2. A fixed import() implementation
+import("path")
+
+Should:
+
+Check if the module path exists in ModuleCache
+
+If yes → return the cached exports
+
+If no → load & execute the module once, cache its exports, return them
+
+3. A fixed import from "path" { ... } implementation
+
+Should:
+
+Load the module from the cache (or execute once if not cached)
+
+Extract ONLY the requested keys
+
+Return references, not deep copies
+
+4. Execution Rules
+
+Module code must run only once, no matter how many files import it.
+
+Cached module exports must always stay consistent everywhere.
+
+Exports may include:
+
+functions
+
+variables
+
+boolean/number/string values
+
+5. Optional improvement (recommended)
+
+Add protection so importing inside loops or functions never triggers module re-execution.
+
+6. Deliverables
+
+The final output must include:
+
+A rewritten import system
+
+Functions or engine code showing how caching is implemented
+
+Examples demonstrating that imported variables update globally and no longer reset
+
+Tests proving:
+
+calling import multiple times does not re-run the module
+
+changing an exported variable is reflected in all scripts
+
+Important
+
+Make sure the solution works with my existing syntax:
+
+import("path")
+import from "path" { value1, value2 }
+module name { ... }
+export { ... }
+export function test() { ... }
