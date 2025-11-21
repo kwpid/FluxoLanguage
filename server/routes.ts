@@ -4,6 +4,9 @@ import { storage } from "./storage";
 import { FluxoInterpreter } from "./fluxo-interpreter";
 import { getAvailableExtensions } from "./extensions-catalog";
 import JSZip from "jszip";
+import multer from "multer";
+import { randomUUID } from "crypto";
+import type { FileNode } from "@shared/schema";
 import {
   createFileRequestSchema,
   updateFileRequestSchema,
@@ -110,6 +113,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
       const workspace = await storage.getWorkspace();
       
       const zip = new JSZip();
+      const extensionMap: Record<string, string> = {};
       
       const addFilesToZip = async (nodes: any[], currentPath: string = '') => {
         for (const node of nodes) {
@@ -121,6 +125,8 @@ export async function registerRoutes(app: Express): Promise<Server> {
             
             if (fileName.endsWith('.fxm') || fileName.endsWith('.fxo')) {
               finalFileName = fileName.replace(/\.(fxm|fxo)$/, '.txt');
+              const finalPath = currentPath ? `${currentPath}/${finalFileName}` : finalFileName;
+              extensionMap[finalPath] = fileName.endsWith('.fxm') ? '.fxm' : '.fxo';
             }
             
             const finalPath = currentPath ? `${currentPath}/${finalFileName}` : finalFileName;
@@ -134,6 +140,8 @@ export async function registerRoutes(app: Express): Promise<Server> {
       
       await addFilesToZip(workspace.fileTree);
       
+      zip.file('.fluxo-metadata.json', JSON.stringify(extensionMap, null, 2));
+      
       const zipBuffer = await zip.generateAsync({ type: 'nodebuffer' });
       
       const sanitizedName = workspace.name.replace(/[^a-zA-Z0-9-_]/g, '_');
@@ -142,6 +150,115 @@ export async function registerRoutes(app: Express): Promise<Server> {
       res.send(zipBuffer);
     } catch (error: any) {
       res.status(400).json({ error: error.message || 'Failed to download workspace' });
+    }
+  });
+
+  const upload = multer({ 
+    storage: multer.memoryStorage(),
+    limits: { fileSize: 50 * 1024 * 1024 }
+  });
+
+  app.post('/api/workspaces/import', upload.single('file'), async (req, res) => {
+    try {
+      if (!req.file) {
+        return res.status(400).json({ error: 'No file uploaded' });
+      }
+
+      const workspaceName = req.body.name || 'Imported Workspace';
+      
+      const zip = new JSZip();
+      const zipContent = await zip.loadAsync(req.file.buffer);
+      
+      let extensionMap: Record<string, string> = {};
+      const metadataFile = zipContent.file('.fluxo-metadata.json');
+      if (metadataFile) {
+        try {
+          const metadataContent = await metadataFile.async('string');
+          extensionMap = JSON.parse(metadataContent);
+        } catch (e) {
+          console.warn('Failed to parse metadata file, falling back to default behavior');
+        }
+      }
+      
+      const buildFileTree = async (zipFiles: JSZip.JSZipObject[]): Promise<FileNode[]> => {
+        const fileMap = new Map<string, FileNode>();
+        
+        const allFiles = zipFiles.filter(f => !f.dir && f.name.trim() && f.name !== '.fluxo-metadata.json');
+        
+        for (const file of allFiles) {
+          let content = await file.async('string');
+          let filePath = file.name.startsWith('/') ? file.name : `/${file.name}`;
+          
+          const pathParts = filePath.split('/').filter(p => p);
+          
+          for (let i = 0; i < pathParts.length; i++) {
+            const currentPath = '/' + pathParts.slice(0, i + 1).join('/');
+            const isFile = i === pathParts.length - 1;
+            
+            if (!fileMap.has(currentPath)) {
+              if (isFile) {
+                let fileName = pathParts[i];
+                const originalFilePath = file.name;
+                
+                if (fileName.endsWith('.txt') && extensionMap[originalFilePath]) {
+                  const withoutTxt = fileName.substring(0, fileName.length - 4);
+                  fileName = withoutTxt + extensionMap[originalFilePath];
+                }
+                
+                const updatedPath = '/' + pathParts.slice(0, i).concat(fileName).join('/');
+                
+                const fileNode: FileNode = {
+                  id: randomUUID(),
+                  name: fileName,
+                  type: 'file',
+                  path: updatedPath,
+                  extension: fileName.includes('.') ? fileName.substring(fileName.lastIndexOf('.')) : '',
+                  content,
+                };
+                fileMap.set(updatedPath, fileNode);
+              } else {
+                const folderNode: FileNode = {
+                  id: randomUUID(),
+                  name: pathParts[i],
+                  type: 'folder',
+                  path: currentPath,
+                  children: [],
+                };
+                fileMap.set(currentPath, folderNode);
+              }
+            }
+          }
+        }
+        
+        const rootNodes: FileNode[] = [];
+        
+        Array.from(fileMap.entries()).forEach(([path, node]) => {
+          const pathSegments = path.split('/').filter(p => p);
+          
+          if (pathSegments.length === 1) {
+            rootNodes.push(node);
+          } else {
+            const parentPath = '/' + pathSegments.slice(0, -1).join('/');
+            const parent = fileMap.get(parentPath);
+            
+            if (parent && parent.type === 'folder' && parent.children) {
+              parent.children.push(node);
+            }
+          }
+        });
+        
+        return rootNodes;
+      };
+      
+      const allFiles = Object.values(zipContent.files);
+      const fileTree = await buildFileTree(allFiles);
+      
+      const workspace = await storage.createWorkspaceFromImport(workspaceName, fileTree);
+      
+      res.status(201).json(workspace);
+    } catch (error: any) {
+      console.error('Failed to import workspace:', error);
+      res.status(400).json({ error: error.message || 'Failed to import workspace' });
     }
   });
 

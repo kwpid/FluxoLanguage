@@ -49,6 +49,28 @@ export class FluxoInterpreter {
       this.addOutput('log', message);
     };
 
+    const message = (prefix: string, ...args: any[]) => {
+      const messageText = args.map(arg => {
+        if (typeof arg === 'object') return JSON.stringify(arg);
+        return String(arg);
+      }).join(' ');
+      
+      const fullMessage = `${prefix} ${messageText}`;
+      
+      const prefixLower = String(prefix).toLowerCase();
+      let type: OutputMessage['type'] = 'log';
+      
+      if (prefixLower.includes('error') || prefixLower.includes('fail')) {
+        type = 'error';
+      } else if (prefixLower.includes('warn') || prefixLower.includes('warning')) {
+        type = 'warning';
+      } else if (prefixLower.includes('success') || prefixLower.includes('done')) {
+        type = 'success';
+      }
+      
+      this.addOutput(type, fullMessage);
+    };
+
     const selectElement = (selector: string) => {
       return {
         selector,
@@ -73,6 +95,7 @@ export class FluxoInterpreter {
       log: consoleLog,
     });
     
+    this.context.variables.set('message', message);
     this.context.variables.set('selectElement', selectElement);
     this.context.variables.set('wait', wait);
   }
@@ -251,11 +274,17 @@ export class FluxoInterpreter {
           
           // Check if module is already loaded
           if (!this.context.modules.has(moduleName)) {
-            await this.loadModule(moduleContent, moduleFilePath);
+            try {
+              await this.loadModule(moduleContent, moduleFilePath);
+            } catch (error: any) {
+              throw new Error(`Failed to load module '${moduleName}' from ${moduleFilePath}: ${error.message}`);
+            }
           }
           
           const loadedModule = this.context.modules.get(moduleName);
           if (loadedModule) {
+            const notFoundExports: string[] = [];
+            
             // Import only the specified variables/functions
             importList.forEach(name => {
               if (loadedModule.exports.has(name)) {
@@ -270,15 +299,32 @@ export class FluxoInterpreter {
                   this.context.variables.set(name, exported);
                 }
               } else {
-                this.addOutput('warning', `Export '${name}' not found in module '${moduleName}'`);
+                notFoundExports.push(name);
               }
             });
+            
+            if (notFoundExports.length > 0) {
+              const availableExports = Array.from(loadedModule.exports.keys()).join(', ');
+              throw new Error(
+                `Import Error: The following exports were not found in module '${moduleName}': ${notFoundExports.join(', ')}\n` +
+                `Available exports: ${availableExports || '(none)'}\n` +
+                `File: ${moduleFilePath}`
+              );
+            }
           }
         } else {
-          throw new Error(`No module definition found in ${modulePath}`);
+          throw new Error(
+            `Invalid module file: ${moduleFilePath}\n` +
+            `Expected format: module moduleName { ... }\n` +
+            `Make sure the file contains a valid module declaration.`
+          );
         }
       } else {
-        throw new Error(`Module not found: ${modulePath}`);
+        const suggestion = fullPath.endsWith('.fxm') ? '' : `\nDid you mean: "${modulePath}.fxm"?`;
+        throw new Error(
+          `Module not found: ${moduleFilePath}\n` +
+          `Make sure the file exists in your workspace.${suggestion}`
+        );
       }
 
       return pos + match[0].length;
@@ -295,9 +341,17 @@ export class FluxoInterpreter {
 
       const moduleContent = await storage.getFileContent(moduleFilePath);
       if (moduleContent) {
-        await this.loadModule(moduleContent, moduleFilePath);
+        try {
+          await this.loadModule(moduleContent, moduleFilePath);
+        } catch (error: any) {
+          throw new Error(`Failed to load module from ${moduleFilePath}: ${error.message}`);
+        }
       } else {
-        throw new Error(`Module not found: ${modulePath}`);
+        const suggestion = fullPath.endsWith('.fxm') ? '' : `\nDid you mean: "${modulePath}.fxm"?`;
+        throw new Error(
+          `Module not found: ${moduleFilePath}\n` +
+          `Make sure the file exists in your workspace.${suggestion}`
+        );
       }
 
       return pos + match[0].length;
@@ -621,18 +675,64 @@ export class FluxoInterpreter {
 
     if (condition) {
       await this.executeBlock(body);
+      return this.skipElseChain(code, endPos);
     } else {
-      const elseMatch = code.substring(endPos).match(/\s*else\s*\{/);
+      let currentPos = endPos;
+      
+      while (true) {
+        const elseifMatch = code.substring(currentPos).match(/\s*elseif\s*\(([^)]+)\)\s*\{/);
+        if (elseifMatch) {
+          const elseifCondition = await this.evaluateExpression(elseifMatch[1]);
+          const elseifBracePos = currentPos + elseifMatch[0].length - 1;
+          const elseifEndPos = this.findMatchingBrace(code, elseifBracePos);
+          const elseifBody = code.substring(elseifBracePos + 1, elseifEndPos - 1);
+          
+          if (elseifCondition) {
+            await this.executeBlock(elseifBody);
+            return this.skipElseChain(code, elseifEndPos);
+          }
+          
+          currentPos = elseifEndPos;
+        } else {
+          break;
+        }
+      }
+      
+      const elseMatch = code.substring(currentPos).match(/\s*else\s*\{/);
       if (elseMatch) {
-        const elseBracePos = endPos + elseMatch[0].length - 1;
+        const elseBracePos = currentPos + elseMatch[0].length - 1;
         const elseEndPos = this.findMatchingBrace(code, elseBracePos);
         const elseBody = code.substring(elseBracePos + 1, elseEndPos - 1);
         await this.executeBlock(elseBody);
         return elseEndPos;
       }
+      
+      return currentPos;
     }
+  }
 
-    return endPos;
+  private skipElseChain(code: string, pos: number): number {
+    let currentPos = pos;
+    
+    while (true) {
+      const elseifMatch = code.substring(currentPos).match(/\s*elseif\s*\(([^)]+)\)\s*\{/);
+      if (elseifMatch) {
+        const elseifBracePos = currentPos + elseifMatch[0].length - 1;
+        const elseifEndPos = this.findMatchingBrace(code, elseifBracePos);
+        currentPos = elseifEndPos;
+      } else {
+        break;
+      }
+    }
+    
+    const elseMatch = code.substring(currentPos).match(/\s*else\s*\{/);
+    if (elseMatch) {
+      const elseBracePos = currentPos + elseMatch[0].length - 1;
+      const elseEndPos = this.findMatchingBrace(code, elseBracePos);
+      return elseEndPos;
+    }
+    
+    return currentPos;
   }
 
   private async parseWhileLoop(code: string, pos: number): Promise<number> {

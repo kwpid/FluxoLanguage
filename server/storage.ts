@@ -6,6 +6,7 @@ export interface IStorage {
   getWorkspaceList(): Promise<WorkspaceListItem[]>;
   getCurrentWorkspaceId(): Promise<string>;
   createWorkspace(name: string): Promise<WorkspaceState>;
+  createWorkspaceFromImport(name: string, fileTree: FileNode[]): Promise<WorkspaceState>;
   switchWorkspace(workspaceId: string): Promise<void>;
   deleteWorkspace(workspaceId: string): Promise<void>;
   getFileTree(): Promise<FileNode[]>;
@@ -72,11 +73,32 @@ export class MemStorage implements IStorage {
 */
 
 /* 
+  OUTPUT & MESSAGING
+  ------------------
+  // Standard console output:
+  console.log("Hello, world!")
+  
+  // Message function with automatic type detection:
+  message("[INFO]", "This is an informational message")
+  message("[ERROR]", "This will show as an error")
+  message("[WARNING]", "This will show as a warning")
+  message("[SUCCESS]", "This will show as success")
+  
+  // The message function detects type from the prefix:
+  // - "error" or "fail" → error message (red)
+  // - "warn" or "warning" → warning message (yellow)
+  // - "success" or "done" → success message (green)
+  // - anything else → log message (default)
+*/
+
+/* 
   MODULES (.fxm files)
   --------------------
   module myModule {
+    local prefix = "[MyModule]"
+    
     export function doSomething() {
-      // code here
+      message(prefix, "Doing something!")
     }
   }
 */
@@ -91,7 +113,10 @@ export class MemStorage implements IStorage {
   myModule.doSomething()
   
   // Or selectively import specific functions/variables:
-  import from "modules/myModule" { doSomething, myVariable }
+  import from "modules/myModule" { doSomething, prefix }
+  
+  // ES6-style also supported:
+  import { doSomething, prefix } from "modules/myModule"
   
   // Then use directly:
   doSomething()
@@ -100,23 +125,49 @@ export class MemStorage implements IStorage {
 /* 
   CONTROL FLOW
   ------------
-  if (condition) {
+  // If-elseif-else statements:
+  if (condition1) {
+    // code
+  } elseif (condition2) {
+    // code
+  } elseif (condition3) {
     // code
   } else {
     // code
   }
   
+  // While loops:
   while (condition) {
     // code
   }
   
+  // For loops:
   for (local i = 0; i < 10; i = i + 1) {
     // code
   }
 */
 
+/* 
+  WORKSPACE MANAGEMENT
+  --------------------
+  // You can download your workspace as a .zip file
+  // and import it later to restore your work!
+  
+  // To download:
+  // 1. Click the workspace selector dropdown
+  // 2. Select "Download Workspace"
+  // 3. Your workspace will be saved as a .zip file
+  
+  // To import:
+  // 1. Click the workspace selector dropdown
+  // 2. Select "Import Workspace"
+  // 3. Choose your .zip file
+  // 4. Name your workspace and import!
+*/
+
 console.log("Welcome to Fluxo IDE!")
 console.log("Explore the scripts/ and modules/ folders to learn more")
+message("[INFO]", "Fluxo IDE is ready!")
 `,
       },
     ];
@@ -153,6 +204,40 @@ console.log("Explore the scripts/ and modules/ folders to learn more")
     this.workspaces.set(newWorkspace.id, newWorkspace);
     this.currentWorkspaceId = newWorkspace.id;
     return newWorkspace;
+  }
+
+  async createWorkspaceFromImport(name: string, fileTree: FileNode[]): Promise<WorkspaceState> {
+    const newWorkspace: WorkspaceState = {
+      id: randomUUID(),
+      name,
+      fileTree,
+      openTabs: [],
+      activeTab: undefined,
+      extensions: [],
+    };
+    
+    const firstFile = this.findFirstFile(fileTree);
+    if (firstFile) {
+      newWorkspace.openTabs = [firstFile.path];
+      newWorkspace.activeTab = firstFile.path;
+    }
+    
+    this.workspaces.set(newWorkspace.id, newWorkspace);
+    this.currentWorkspaceId = newWorkspace.id;
+    return newWorkspace;
+  }
+
+  private findFirstFile(nodes: FileNode[]): FileNode | undefined {
+    for (const node of nodes) {
+      if (node.type === 'file') {
+        return node;
+      }
+      if (node.children) {
+        const found = this.findFirstFile(node.children);
+        if (found) return found;
+      }
+    }
+    return undefined;
   }
 
   async switchWorkspace(workspaceId: string): Promise<void> {

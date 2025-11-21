@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useRef } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { apiRequest, queryClient } from "@/lib/queryClient";
 import type { WorkspaceListItem } from "@shared/schema";
@@ -21,7 +21,7 @@ import {
 } from "@/components/ui/dialog";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import { FolderTree, Plus, Trash2, Check, Download } from "lucide-react";
+import { FolderTree, Plus, Trash2, Check, Download, Upload } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 
 interface WorkspaceSelectorProps {
@@ -31,7 +31,11 @@ interface WorkspaceSelectorProps {
 export function WorkspaceSelector({ currentWorkspaceName }: WorkspaceSelectorProps) {
   const { toast } = useToast();
   const [createDialogOpen, setCreateDialogOpen] = useState(false);
+  const [importDialogOpen, setImportDialogOpen] = useState(false);
   const [newWorkspaceName, setNewWorkspaceName] = useState("");
+  const [importWorkspaceName, setImportWorkspaceName] = useState("");
+  const [selectedFile, setSelectedFile] = useState<File | null>(null);
+  const fileInputRef = useRef<HTMLInputElement>(null);
 
   const { data: workspaces = [] } = useQuery<WorkspaceListItem[]>({
     queryKey: ['/api/workspaces'],
@@ -151,6 +155,81 @@ export function WorkspaceSelector({ currentWorkspaceName }: WorkspaceSelectorPro
     }
   };
 
+  const handleFileSelect = (event: React.ChangeEvent<HTMLInputElement>) => {
+    const file = event.target.files?.[0];
+    if (file) {
+      if (!file.name.endsWith('.zip')) {
+        toast({
+          title: "Error",
+          description: "Please select a .zip file",
+          variant: "destructive",
+        });
+        return;
+      }
+      setSelectedFile(file);
+      const baseName = file.name.replace('.zip', '').replace(/_workspace$/, '');
+      setImportWorkspaceName(baseName || 'Imported Workspace');
+    }
+  };
+
+  const handleImportWorkspace = async () => {
+    if (!selectedFile) {
+      toast({
+        title: "Error",
+        description: "Please select a file to import",
+        variant: "destructive",
+      });
+      return;
+    }
+
+    if (!importWorkspaceName.trim()) {
+      toast({
+        title: "Error",
+        description: "Workspace name cannot be empty",
+        variant: "destructive",
+      });
+      return;
+    }
+
+    try {
+      const formData = new FormData();
+      formData.append('file', selectedFile);
+      formData.append('name', importWorkspaceName);
+
+      const response = await fetch('/api/workspaces/import', {
+        method: 'POST',
+        body: formData,
+        credentials: 'include',
+      });
+
+      if (!response.ok) {
+        const error = await response.json();
+        throw new Error(error.error || 'Import failed');
+      }
+
+      setImportDialogOpen(false);
+      setSelectedFile(null);
+      setImportWorkspaceName("");
+      if (fileInputRef.current) {
+        fileInputRef.current.value = "";
+      }
+      
+      queryClient.invalidateQueries({ queryKey: ['/api/workspaces'] });
+      queryClient.invalidateQueries({ queryKey: ['/api/workspace'] });
+      
+      toast({
+        title: "Success",
+        description: "Workspace imported successfully",
+      });
+    } catch (error: any) {
+      toast({
+        title: "Error",
+        description: error.message || "Failed to import workspace",
+        variant: "destructive",
+      });
+    }
+  };
+
   return (
     <>
       <DropdownMenu>
@@ -212,6 +291,14 @@ export function WorkspaceSelector({ currentWorkspaceName }: WorkspaceSelectorPro
             Download Workspace
           </DropdownMenuItem>
           <DropdownMenuItem
+            onClick={() => setImportDialogOpen(true)}
+            className="cursor-pointer"
+            data-testid="button-import-workspace"
+          >
+            <Upload className="h-4 w-4 mr-2" />
+            Import Workspace
+          </DropdownMenuItem>
+          <DropdownMenuItem
             onClick={() => setCreateDialogOpen(true)}
             className="cursor-pointer"
             data-testid="button-new-workspace"
@@ -260,6 +347,70 @@ export function WorkspaceSelector({ currentWorkspaceName }: WorkspaceSelectorPro
               data-testid="button-create-workspace"
             >
               Create
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      <Dialog open={importDialogOpen} onOpenChange={setImportDialogOpen}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>Import Workspace</DialogTitle>
+            <DialogDescription>
+              Import a workspace from a previously downloaded .zip file. The workspace will be created automatically.
+            </DialogDescription>
+          </DialogHeader>
+          <div className="space-y-4 py-4">
+            <div className="space-y-2">
+              <Label htmlFor="import-file">Workspace File (.zip)</Label>
+              <Input
+                id="import-file"
+                type="file"
+                accept=".zip"
+                ref={fileInputRef}
+                onChange={handleFileSelect}
+                data-testid="input-import-file"
+              />
+            </div>
+            {selectedFile && (
+              <div className="space-y-2">
+                <Label htmlFor="import-workspace-name">Workspace Name</Label>
+                <Input
+                  id="import-workspace-name"
+                  placeholder="My Imported Project"
+                  value={importWorkspaceName}
+                  onChange={(e) => setImportWorkspaceName(e.target.value)}
+                  onKeyDown={(e) => {
+                    if (e.key === 'Enter') {
+                      handleImportWorkspace();
+                    }
+                  }}
+                  data-testid="input-import-workspace-name"
+                />
+              </div>
+            )}
+          </div>
+          <DialogFooter>
+            <Button 
+              variant="outline" 
+              onClick={() => {
+                setImportDialogOpen(false);
+                setSelectedFile(null);
+                setImportWorkspaceName("");
+                if (fileInputRef.current) {
+                  fileInputRef.current.value = "";
+                }
+              }}
+              data-testid="button-cancel-import"
+            >
+              Cancel
+            </Button>
+            <Button 
+              onClick={handleImportWorkspace}
+              disabled={!selectedFile}
+              data-testid="button-import-workspace-confirm"
+            >
+              Import
             </Button>
           </DialogFooter>
         </DialogContent>
