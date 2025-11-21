@@ -2,7 +2,7 @@ import type { Express } from "express";
 import { createServer, type Server } from "http";
 import { storage } from "./storage";
 import { FluxoInterpreter } from "./fluxo-interpreter";
-import { extensionsCatalog } from "./extensions-catalog";
+import { getAvailableExtensions } from "./extensions-catalog";
 import JSZip from "jszip";
 import {
   createFileRequestSchema,
@@ -13,9 +13,6 @@ import {
   createWorkspaceRequestSchema,
   executeCodeRequestSchema,
   executeWorkspaceRequestSchema,
-  downloadExtensionRequestSchema,
-  installExtensionRequestSchema,
-  uninstallExtensionRequestSchema,
   toggleExtensionRequestSchema,
 } from "@shared/schema";
 
@@ -358,314 +355,25 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
   app.get('/api/extensions', async (req, res) => {
     try {
-      
-      const extensions = await storage.getExtensions();
+      // Load extensions from disk - they're all automatically installed and available
+      const extensions = getAvailableExtensions();
       res.json(extensions);
     } catch (error) {
       res.status(500).json({ error: 'Failed to get extensions' });
     }
   });
 
-  app.post('/api/extensions/download', async (req, res) => {
-    try {
-      
-      const data = downloadExtensionRequestSchema.parse(req.body);
-      
-      // Get extension metadata from extensions catalog, or use defaults for custom extensions
-      const catalogExtension = extensionsCatalog.find(ext => ext.id === data.id);
-      
-      const extension = catalogExtension ? {
-        ...catalogExtension,
-        enabled: false,
-        downloadedAt: Date.now(),
-        isInstalled: false,
-        isCustom: false,
-      } : {
-        id: data.id,
-        name: data.id,
-        version: '1.0.0',
-        description: 'Custom extension',
-        author: 'User',
-        category: 'utility' as const,
-        enabled: false,
-        downloadedAt: Date.now(),
-        isInstalled: false,
-        isCustom: true,
-        packages: [], // Empty packages array for custom extensions
-      };
-      
-      await storage.downloadExtension(extension);
-      res.json(extension);
-    } catch (error: any) {
-      res.status(400).json({ error: error.message || 'Failed to download extension' });
-    }
-  });
-
-  app.post('/api/extensions/install', async (req, res) => {
-    try {
-      
-      const data = installExtensionRequestSchema.parse(req.body);
-      const extension = await storage.installExtension(data.id);
-      
-      // If HTML Supporter extension, create template files
-      if (data.id === 'html-supporter') {
-        try {
-          // Create HTML templates folder first (ignore if it already exists)
-          try {
-            await storage.createFile('/', 'html-templates', 'folder');
-          } catch (folderError: any) {
-            // Folder might already exist, that's OK
-            if (!folderError.message?.includes('already exists')) {
-              throw folderError;
-            }
-          }
-          
-          const htmlTemplateContent = `<!DOCTYPE html>
-<html lang="en">
-<head>
-  <meta charset="UTF-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>Fluxo HTML Template</title>
-  <link rel="stylesheet" href="styles.css">
-</head>
-<body>
-  <div class="container">
-    <h1>Welcome to Fluxo HTML Support!</h1>
-    <p>This template demonstrates importing Fluxo modules from HTML.</p>
-    <button id="myButton" class="btn">Click Me!</button>
-    <div id="output"></div>
-  </div>
-  
-  <!-- Import Fluxo module using data-fluxo-entry attribute -->
-  <script type="module" data-fluxo-entry="app.fxm"></script>
-</body>
-</html>`;
-
-          const cssTemplateContent = `* {
-  margin: 0;
-  padding: 0;
-  box-sizing: border-box;
-}
-
-body {
-  font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Oxygen, Ubuntu, Cantarell, sans-serif;
-  background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
-  min-height: 100vh;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  padding: 20px;
-}
-
-.container {
-  background: white;
-  padding: 40px;
-  border-radius: 10px;
-  box-shadow: 0 20px 60px rgba(0, 0, 0, 0.3);
-  max-width: 500px;
-  width: 100%;
-  text-align: center;
-}
-
-h1 {
-  color: #333;
-  margin-bottom: 20px;
-  font-size: 28px;
-}
-
-p {
-  color: #666;
-  margin-bottom: 30px;
-  line-height: 1.6;
-}
-
-.btn {
-  background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
-  color: white;
-  border: none;
-  padding: 12px 30px;
-  font-size: 16px;
-  border-radius: 5px;
-  cursor: pointer;
-  transition: transform 0.2s, box-shadow 0.2s;
-}
-
-.btn:hover {
-  transform: translateY(-2px);
-  box-shadow: 0 10px 20px rgba(102, 126, 234, 0.4);
-}
-
-.btn:active {
-  transform: translateY(0);
-}
-
-#output {
-  margin-top: 20px;
-  padding: 15px;
-  background: #f5f5f5;
-  border-radius: 5px;
-  color: #333;
-  font-weight: 500;
-  min-height: 50px;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-}`;
-
-          const fluxoModuleContent = `// app.fxm - Main Fluxo Module for HTML Template
-// This module is imported by the HTML file using data-fluxo-entry
-
-require("loader.fxm")
-
-module app {
-  // Export a function to handle button click
-  export function handleButtonClick() {
-    console.log("Button clicked from Fluxo module!")
-    
-    // Get the button element and change its text
-    local button = document.getElementById("myButton")
-    if (button != null) {
-      button.textContent = "Clicked!"
-    }
-    
-    // Show a message in the output area
-    local outputDiv = document.getElementById("output")
-    if (outputDiv != null) {
-      outputDiv.textContent = "Button was clicked successfully!"
-    }
-  }
-  
-  // Example: Log a message when module loads
-  export function init() {
-    console.log("Fluxo app module initialized!")
-    
-    // Attach click event to button
-    local button = document.getElementById("myButton")
-    if (button != null) {
-      button.addEventListener("click", app.handleButtonClick)
-    }
-  }
-}
-
-// Call init when module loads
-app.init()`;
-
-          const loaderModuleContent = `// loader.fxm - Loader/Utilities Module
-// This module is loaded by app.fxm and provides helper functions
-
-module loader {
-  // Helper function to safely get elements
-  export function getElement(id) {
-    local element = document.getElementById(id)
-    if (element == null) {
-      console.log("Warning: Element with ID '" + id + "' not found")
-    }
-    return element
-  }
-  
-  // Helper function to set text content safely
-  export function setText(id, text) {
-    local element = loader.getElement(id)
-    if (element != null) {
-      element.textContent = text
-    }
-  }
-  
-  // Helper function to add click listener
-  export function onClick(id, callback) {
-    local element = loader.getElement(id)
-    if (element != null) {
-      element.addEventListener("click", callback)
-    }
-  }
-  
-  // Log when loader module is ready
-  export function init() {
-    console.log("Fluxo loader module initialized!")
-  }
-}
-
-// Call init when module loads
-loader.init()`;
-
-          const readmeContent = `# Fluxo HTML Support
-
-This folder demonstrates how to use HTML with Fluxo modules.
-
-## How It Works
-
-1. **HTML files import Fluxo modules** - HTML files cannot contain embedded Fluxo code. Instead, they import external Fluxo files using the \`data-fluxo-entry\` attribute:
-
-   \`\`\`html
-   <script type="module" data-fluxo-entry="app.fxm"></script>
-   \`\`\`
-
-2. **Fluxo Module Files (.fxm)** - These files contain modules that can export functions and variables for use in your application.
-
-3. **Folder Imports** - You can import all Fluxo files from a folder using:
-
-   \`\`\`fluxo
-   module folder "./scripts" as myScripts
-   \`\`\`
-
-## Best Practices
-
-- Use module files (.fxm) for organized, reusable code
-- Use regular Fluxo files (.fxo) for standalone scripts
-- Import modules from HTML to keep code separate and maintainable
-
-## Example Usage
-
-See \`example.html\` and \`app.fxm\` for a working example.
-`;
-
-          // Create the html-templates folder and files (skip if they already exist)
-          const files = [
-            { name: 'example.html', content: htmlTemplateContent },
-            { name: 'styles.css', content: cssTemplateContent },
-            { name: 'app.fxm', content: fluxoModuleContent },
-            { name: 'loader.fxm', content: loaderModuleContent },
-            { name: 'README.md', content: readmeContent },
-          ];
-          
-          for (const file of files) {
-            const filePath = `/html-templates/${file.name}`;
-            const exists = await storage.getFileContent(filePath);
-            if (exists === undefined) {
-              await storage.createFile('/html-templates', file.name, 'file', file.content);
-            }
-          }
-        } catch (fileError) {
-          console.error('Failed to create template files:', fileError);
-          // Continue anyway, don't fail the extension installation
-        }
-      }
-      
-      res.json(extension);
-    } catch (error: any) {
-      res.status(400).json({ error: error.message || 'Failed to install extension' });
-    }
-  });
-
-  app.post('/api/extensions/uninstall', async (req, res) => {
-    try {
-      
-      const data = uninstallExtensionRequestSchema.parse(req.body);
-      await storage.uninstallExtension(data.id);
-      res.json({ success: true });
-    } catch (error: any) {
-      res.status(400).json({ error: error.message || 'Failed to uninstall extension' });
-    }
-  });
-
   app.post('/api/extensions/toggle', async (req, res) => {
     try {
       
+      const data = downloadExtensionRequestSchema.parse(req.body);
+    try {
       const data = toggleExtensionRequestSchema.parse(req.body);
-      await storage.toggleExtension(data.id, data.enabled);
+      const { toggleExtension } = await import("./extensions-loader");
+      toggleExtension(data.id, data.enabled);
       res.json({ success: true });
     } catch (error: any) {
-      res.status(400).json({ error: error.message || 'Failed to toggle extension' });
+      res.status(400).json({ error: error.message || "Failed to toggle extension" });
     }
   });
 
