@@ -76,7 +76,7 @@ export function Terminal() {
           addLine('output', '    pwd                    - Print current directory');
           addLine('output', '    cat <file>             - Display file contents');
           addLine('output', '    mkdir <name>           - Create a new folder');
-          addLine('output', '    touch <name>           - Create a new file');
+          addLine('output', '    touch <name> [--module]- Create a new file (.fxo or .fxm)');
           addLine('output', '    rm <path>              - Remove file or folder');
           addLine('output', '  Workspace:');
           addLine('output', '    export                 - Export workspace as ZIP');
@@ -302,19 +302,32 @@ export function Terminal() {
   };
 
   const resolvePath = (path: string): string => {
+    let targetPath: string;
+    
     if (path.startsWith('/')) {
-      return path;
+      targetPath = path;
+    } else {
+      targetPath = currentDirectory === '/' ? `/${path}` : `${currentDirectory}/${path}`;
     }
-    if (path === '.') {
-      return currentDirectory;
+    
+    const parts = targetPath.split('/').filter(p => p);
+    const normalizedParts: string[] = [];
+    
+    for (const part of parts) {
+      if (part === '..') {
+        normalizedParts.pop();
+      } else if (part !== '.') {
+        normalizedParts.push(part);
+      }
     }
-    if (path === '..') {
-      const parts = currentDirectory.split('/').filter(p => p);
-      parts.pop();
-      return '/' + parts.join('/');
+    
+    const normalized = '/' + normalizedParts.join('/');
+    
+    if (!normalized.startsWith('/')) {
+      throw new Error('Path traversal outside workspace not allowed');
     }
-    const normalized = currentDirectory === '/' ? `/${path}` : `${currentDirectory}/${path}`;
-    return normalized;
+    
+    return normalized || '/';
   };
 
   const handleCdCommand = async (args: string[]) => {
@@ -451,11 +464,46 @@ export function Terminal() {
       return;
     }
 
-    const folderName = args[0];
-
     try {
+      const targetPath = resolvePath(args[0]);
+      const parts = targetPath.split('/').filter(p => p);
+      const folderName = parts.pop() || '';
+      
+      if (!folderName) {
+        addLine('error', 'mkdir: Invalid folder name');
+        return;
+      }
+      
+      const parentPath = parts.length > 0 ? '/' + parts.join('/') : '/';
+      
+      if (parentPath !== '/') {
+        const treeResponse = await fetch('/api/files/tree');
+        const fileTree = await treeResponse.json();
+        
+        const findPath = (nodes: any[], path: string): any | null => {
+          for (const node of nodes) {
+            if (node.path === path) return node;
+            if (node.children) {
+              const found = findPath(node.children, path);
+              if (found) return found;
+            }
+          }
+          return null;
+        };
+        
+        const parent = findPath(fileTree, parentPath);
+        if (!parent) {
+          addLine('error', `mkdir: ${parentPath}: No such directory`);
+          return;
+        }
+        if (parent.type !== 'folder') {
+          addLine('error', `mkdir: ${parentPath}: Not a directory`);
+          return;
+        }
+      }
+
       const response = await apiRequest('POST', '/api/files/create', {
-        parentPath: currentDirectory,
+        parentPath,
         name: folderName,
         type: 'folder',
       });
@@ -475,20 +523,58 @@ export function Terminal() {
   };
 
   const handleTouchCommand = async (args: string[]) => {
-    if (args.length === 0) {
-      addLine('error', 'Usage: touch <name>');
+    const isModule = args.includes('--module');
+    const pathArg = args.find(arg => !arg.startsWith('--'));
+    
+    if (!pathArg) {
+      addLine('error', 'Usage: touch <name> [--module]');
       return;
     }
 
-    let fileName = args[0];
-    
-    if (!fileName.includes('.')) {
-      fileName += '.fxo';
-    }
-
     try {
+      const targetPath = resolvePath(pathArg);
+      const parts = targetPath.split('/').filter(p => p);
+      let fileName = parts.pop() || '';
+      
+      if (!fileName) {
+        addLine('error', 'touch: Invalid file name');
+        return;
+      }
+      
+      const parentPath = parts.length > 0 ? '/' + parts.join('/') : '/';
+      
+      if (parentPath !== '/') {
+        const treeResponse = await fetch('/api/files/tree');
+        const fileTree = await treeResponse.json();
+        
+        const findPath = (nodes: any[], path: string): any | null => {
+          for (const node of nodes) {
+            if (node.path === path) return node;
+            if (node.children) {
+              const found = findPath(node.children, path);
+              if (found) return found;
+            }
+          }
+          return null;
+        };
+        
+        const parent = findPath(fileTree, parentPath);
+        if (!parent) {
+          addLine('error', `touch: ${parentPath}: No such directory`);
+          return;
+        }
+        if (parent.type !== 'folder') {
+          addLine('error', `touch: ${parentPath}: Not a directory`);
+          return;
+        }
+      }
+      
+      if (!fileName.includes('.')) {
+        fileName += isModule ? '.fxm' : '.fxo';
+      }
+
       const response = await apiRequest('POST', '/api/files/create', {
-        parentPath: currentDirectory,
+        parentPath,
         name: fileName,
         type: 'file',
         content: '',
@@ -539,12 +625,26 @@ export function Terminal() {
     try {
       addLine('output', 'Exporting workspace...');
       
+      const response = await fetch('/api/workspaces/download');
+      
+      if (!response.ok) {
+        const error = await response.json();
+        addLine('error', `export: ${error.error || 'Failed to export workspace'}`);
+        return;
+      }
+      
+      const blob = await response.blob();
+      const contentDisposition = response.headers.get('Content-Disposition');
+      const filenameMatch = contentDisposition?.match(/filename="(.+)"/);
+      const filename = filenameMatch ? filenameMatch[1] : 'workspace.zip';
+      
       const link = document.createElement('a');
-      link.href = '/api/workspaces/download';
-      link.download = '';
+      link.href = URL.createObjectURL(blob);
+      link.download = filename;
       document.body.appendChild(link);
       link.click();
       document.body.removeChild(link);
+      URL.revokeObjectURL(link.href);
       
       addLine('success', 'Workspace exported successfully');
     } catch (error: any) {
@@ -558,18 +658,26 @@ export function Terminal() {
       return;
     }
 
-    const targetPath = resolvePath(args[0]);
-
     try {
+      const targetPath = resolvePath(args[0]);
       const response = await fetch(`/api/files/content?path=${encodeURIComponent(targetPath)}`);
       
       if (!response.ok) {
-        addLine('error', `download: ${args[0]}: No such file`);
+        let errorMessage = `HTTP ${response.status}: ${response.statusText}`;
+        try {
+          const error = await response.json();
+          errorMessage = error.error || errorMessage;
+        } catch {
+          const text = await response.text();
+          if (text) errorMessage = text;
+        }
+        addLine('error', `download: ${errorMessage}`);
         return;
       }
 
       const data = await response.json();
-      const fileName = args[0].split('/').pop() || 'download.txt';
+      const parts = targetPath.split('/').filter(p => p);
+      const fileName = parts[parts.length - 1] || 'download.txt';
       
       const blob = new Blob([data.content], { type: 'text/plain' });
       const link = document.createElement('a');
