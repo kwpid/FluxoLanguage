@@ -18,7 +18,7 @@ export function Terminal() {
     {
       id: '1',
       type: 'output',
-      content: 'Fluxo IDE Terminal v1.0.0',
+      content: 'Fluxo IDE Terminal v0.1.32',
       timestamp: Date.now(),
     },
     {
@@ -31,6 +31,7 @@ export function Terminal() {
   const [currentCommand, setCurrentCommand] = useState('');
   const [commandHistory, setCommandHistory] = useState<string[]>([]);
   const [historyIndex, setHistoryIndex] = useState(-1);
+  const [currentDirectory, setCurrentDirectory] = useState('/');
   const inputRef = useRef<HTMLInputElement>(null);
   const scrollRef = useRef<HTMLDivElement>(null);
 
@@ -69,17 +70,66 @@ export function Terminal() {
       switch (command) {
         case 'help':
           addLine('output', 'Available commands:');
-          addLine('output', '  help                     - Show this help message');
-          addLine('output', '  clear                    - Clear terminal');
-          addLine('output', '  fluxo install <id>       - Install a downloaded extension');
-          addLine('output', '  ext list                 - List installed extensions');
-          addLine('output', '  ext uninstall <id>       - Uninstall an extension');
-          addLine('output', '  ext enable <id>          - Enable an extension');
-          addLine('output', '  ext disable <id>         - Disable an extension');
+          addLine('output', '  File System:');
+          addLine('output', '    ls [path]              - List files in directory');
+          addLine('output', '    cd <path>              - Change directory');
+          addLine('output', '    pwd                    - Print current directory');
+          addLine('output', '    cat <file>             - Display file contents');
+          addLine('output', '    mkdir <name>           - Create a new folder');
+          addLine('output', '    touch <name>           - Create a new file');
+          addLine('output', '    rm <path>              - Remove file or folder');
+          addLine('output', '  Workspace:');
+          addLine('output', '    export                 - Export workspace as ZIP');
+          addLine('output', '    download <path>        - Download file or folder');
+          addLine('output', '  Extensions:');
+          addLine('output', '    fluxo install <id>     - Install a downloaded extension');
+          addLine('output', '    ext list               - List installed extensions');
+          addLine('output', '    ext uninstall <id>     - Uninstall an extension');
+          addLine('output', '    ext enable <id>        - Enable an extension');
+          addLine('output', '    ext disable <id>       - Disable an extension');
+          addLine('output', '  Other:');
+          addLine('output', '    help                   - Show this help message');
+          addLine('output', '    clear                  - Clear terminal');
           break;
 
         case 'clear':
           setHistory([]);
+          break;
+
+        case 'pwd':
+          addLine('output', currentDirectory);
+          break;
+
+        case 'cd':
+          await handleCdCommand(args);
+          break;
+
+        case 'ls':
+          await handleLsCommand(args);
+          break;
+
+        case 'cat':
+          await handleCatCommand(args);
+          break;
+
+        case 'mkdir':
+          await handleMkdirCommand(args);
+          break;
+
+        case 'touch':
+          await handleTouchCommand(args);
+          break;
+
+        case 'rm':
+          await handleRmCommand(args);
+          break;
+
+        case 'export':
+          await handleExportCommand();
+          break;
+
+        case 'download':
+          await handleDownloadCommand(args);
           break;
 
         case 'fluxo':
@@ -251,6 +301,291 @@ export function Terminal() {
     }
   };
 
+  const resolvePath = (path: string): string => {
+    if (path.startsWith('/')) {
+      return path;
+    }
+    if (path === '.') {
+      return currentDirectory;
+    }
+    if (path === '..') {
+      const parts = currentDirectory.split('/').filter(p => p);
+      parts.pop();
+      return '/' + parts.join('/');
+    }
+    const normalized = currentDirectory === '/' ? `/${path}` : `${currentDirectory}/${path}`;
+    return normalized;
+  };
+
+  const handleCdCommand = async (args: string[]) => {
+    if (args.length === 0) {
+      setCurrentDirectory('/');
+      addLine('success', 'Changed to root directory');
+      return;
+    }
+
+    const targetPath = resolvePath(args[0]);
+
+    try {
+      const response = await fetch(`/api/files/tree`);
+      const fileTree = await response.json();
+
+      const findPath = (nodes: any[], path: string): any | null => {
+        if (path === '/') return { type: 'folder', exists: true };
+        
+        for (const node of nodes) {
+          if (node.path === path) {
+            return node;
+          }
+          if (node.children) {
+            const found = findPath(node.children, path);
+            if (found) return found;
+          }
+        }
+        return null;
+      };
+
+      const target = findPath(fileTree, targetPath);
+      
+      if (!target) {
+        addLine('error', `cd: ${args[0]}: No such directory`);
+        return;
+      }
+
+      if (target.type !== 'folder') {
+        addLine('error', `cd: ${args[0]}: Not a directory`);
+        return;
+      }
+
+      setCurrentDirectory(targetPath);
+      addLine('success', `Changed directory to ${targetPath}`);
+    } catch (error: any) {
+      addLine('error', `cd: ${error.message}`);
+    }
+  };
+
+  const handleLsCommand = async (args: string[]) => {
+    const targetPath = args.length > 0 ? resolvePath(args[0]) : currentDirectory;
+
+    try {
+      const response = await fetch(`/api/files/tree`);
+      const fileTree = await response.json();
+
+      const findPath = (nodes: any[], path: string): any | null => {
+        if (path === '/') {
+          return { type: 'folder', children: nodes };
+        }
+        
+        for (const node of nodes) {
+          if (node.path === path) {
+            return node;
+          }
+          if (node.children) {
+            const found = findPath(node.children, path);
+            if (found) return found;
+          }
+        }
+        return null;
+      };
+
+      const target = findPath(fileTree, targetPath);
+
+      if (!target) {
+        addLine('error', `ls: ${args[0] || currentDirectory}: No such file or directory`);
+        return;
+      }
+
+      if (target.type === 'file') {
+        addLine('output', target.name);
+        return;
+      }
+
+      const children = target.children || [];
+      if (children.length === 0) {
+        addLine('output', 'Empty directory');
+        return;
+      }
+
+      addLine('output', `Contents of ${targetPath}:`);
+      children.forEach((child: any) => {
+        const prefix = child.type === 'folder' ? '📁' : '📄';
+        addLine('output', `  ${prefix} ${child.name}`);
+      });
+    } catch (error: any) {
+      addLine('error', `ls: ${error.message}`);
+    }
+  };
+
+  const handleCatCommand = async (args: string[]) => {
+    if (args.length === 0) {
+      addLine('error', 'Usage: cat <file>');
+      return;
+    }
+
+    const filePath = resolvePath(args[0]);
+
+    try {
+      const response = await fetch(`/api/files/content?path=${encodeURIComponent(filePath)}`);
+      
+      if (!response.ok) {
+        addLine('error', `cat: ${args[0]}: No such file`);
+        return;
+      }
+
+      const data = await response.json();
+      const lines = data.content.split('\n');
+      
+      addLine('output', `--- ${filePath} ---`);
+      lines.forEach((line: string) => {
+        addLine('output', line);
+      });
+      addLine('output', '--- End of file ---');
+    } catch (error: any) {
+      addLine('error', `cat: ${error.message}`);
+    }
+  };
+
+  const handleMkdirCommand = async (args: string[]) => {
+    if (args.length === 0) {
+      addLine('error', 'Usage: mkdir <name>');
+      return;
+    }
+
+    const folderName = args[0];
+
+    try {
+      const response = await apiRequest('POST', '/api/files/create', {
+        parentPath: currentDirectory,
+        name: folderName,
+        type: 'folder',
+      });
+
+      if (!response.ok) {
+        const error = await response.json();
+        addLine('error', `mkdir: ${error.error || 'Failed to create folder'}`);
+        return;
+      }
+
+      addLine('success', `Created folder: ${folderName}`);
+      queryClient.invalidateQueries({ queryKey: ['/api/files/tree'] });
+      queryClient.invalidateQueries({ queryKey: ['/api/workspace'] });
+    } catch (error: any) {
+      addLine('error', `mkdir: ${error.message}`);
+    }
+  };
+
+  const handleTouchCommand = async (args: string[]) => {
+    if (args.length === 0) {
+      addLine('error', 'Usage: touch <name>');
+      return;
+    }
+
+    let fileName = args[0];
+    
+    if (!fileName.includes('.')) {
+      fileName += '.fxo';
+    }
+
+    try {
+      const response = await apiRequest('POST', '/api/files/create', {
+        parentPath: currentDirectory,
+        name: fileName,
+        type: 'file',
+        content: '',
+      });
+
+      if (!response.ok) {
+        const error = await response.json();
+        addLine('error', `touch: ${error.error || 'Failed to create file'}`);
+        return;
+      }
+
+      addLine('success', `Created file: ${fileName}`);
+      queryClient.invalidateQueries({ queryKey: ['/api/files/tree'] });
+      queryClient.invalidateQueries({ queryKey: ['/api/workspace'] });
+    } catch (error: any) {
+      addLine('error', `touch: ${error.message}`);
+    }
+  };
+
+  const handleRmCommand = async (args: string[]) => {
+    if (args.length === 0) {
+      addLine('error', 'Usage: rm <path>');
+      return;
+    }
+
+    const targetPath = resolvePath(args[0]);
+
+    try {
+      const response = await apiRequest('POST', '/api/files/delete', {
+        path: targetPath,
+      });
+
+      if (!response.ok) {
+        const error = await response.json();
+        addLine('error', `rm: ${error.error || 'Failed to delete'}`);
+        return;
+      }
+
+      addLine('success', `Removed: ${args[0]}`);
+      queryClient.invalidateQueries({ queryKey: ['/api/files/tree'] });
+      queryClient.invalidateQueries({ queryKey: ['/api/workspace'] });
+    } catch (error: any) {
+      addLine('error', `rm: ${error.message}`);
+    }
+  };
+
+  const handleExportCommand = async () => {
+    try {
+      addLine('output', 'Exporting workspace...');
+      
+      const link = document.createElement('a');
+      link.href = '/api/workspaces/download';
+      link.download = '';
+      document.body.appendChild(link);
+      link.click();
+      document.body.removeChild(link);
+      
+      addLine('success', 'Workspace exported successfully');
+    } catch (error: any) {
+      addLine('error', `export: ${error.message}`);
+    }
+  };
+
+  const handleDownloadCommand = async (args: string[]) => {
+    if (args.length === 0) {
+      addLine('error', 'Usage: download <path>');
+      return;
+    }
+
+    const targetPath = resolvePath(args[0]);
+
+    try {
+      const response = await fetch(`/api/files/content?path=${encodeURIComponent(targetPath)}`);
+      
+      if (!response.ok) {
+        addLine('error', `download: ${args[0]}: No such file`);
+        return;
+      }
+
+      const data = await response.json();
+      const fileName = args[0].split('/').pop() || 'download.txt';
+      
+      const blob = new Blob([data.content], { type: 'text/plain' });
+      const link = document.createElement('a');
+      link.href = URL.createObjectURL(blob);
+      link.download = fileName;
+      document.body.appendChild(link);
+      link.click();
+      document.body.removeChild(link);
+      URL.revokeObjectURL(link.href);
+      
+      addLine('success', `Downloaded: ${fileName}`);
+    } catch (error: any) {
+      addLine('error', `download: ${error.message}`);
+    }
+  };
+
   const handleKeyDown = (e: React.KeyboardEvent<HTMLInputElement>) => {
     if (e.key === 'Enter') {
       executeCommand(currentCommand);
@@ -321,8 +656,8 @@ export function Terminal() {
           </div>
         ))}
         
-        <div className="flex items-center gap-2 text-primary">
-          <ChevronRight className="h-4 w-4 flex-shrink-0" />
+        <div className="flex items-start gap-2 text-primary">
+          <span className="text-muted-foreground flex-shrink-0">{currentDirectory}$</span>
           <input
             ref={inputRef}
             type="text"
