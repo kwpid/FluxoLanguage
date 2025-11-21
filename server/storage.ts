@@ -145,11 +145,13 @@ console.log("Explore the scripts/ and modules/ folders to learn more")
     const newWorkspace: WorkspaceState = {
       id: randomUUID(),
       name,
-      fileTree: [],
-      openTabs: [],
-      activeTab: undefined,
+      fileTree: this.createInitialFileTree(),
+      openTabs: ['/README.fxo'],
+      activeTab: '/README.fxo',
+      extensions: [],
     };
     this.workspaces.set(newWorkspace.id, newWorkspace);
+    this.currentWorkspaceId = newWorkspace.id;
     return newWorkspace;
   }
 
@@ -164,14 +166,21 @@ console.log("Explore the scripts/ and modules/ folders to learn more")
     if (this.workspaces.size <= 1) {
       throw new Error('Cannot delete the last workspace');
     }
-    if (workspaceId === this.currentWorkspaceId) {
+    
+    const isCurrentWorkspace = workspaceId === this.currentWorkspaceId;
+    
+    this.workspaces.delete(workspaceId);
+    
+    if (isCurrentWorkspace) {
       const workspaceIds = Array.from(this.workspaces.keys());
-      const newCurrentId = workspaceIds.find(id => id !== workspaceId);
-      if (newCurrentId) {
-        this.currentWorkspaceId = newCurrentId;
+      if (workspaceIds.length > 0) {
+        this.currentWorkspaceId = workspaceIds[0];
+      } else {
+        const defaultWorkspace = this.createDefaultWorkspace("Main Workspace");
+        this.workspaces.set(defaultWorkspace.id, defaultWorkspace);
+        this.currentWorkspaceId = defaultWorkspace.id;
       }
     }
-    this.workspaces.delete(workspaceId);
   }
 
   private findNode(path: string, nodes?: FileNode[]): FileNode | undefined {
@@ -243,7 +252,9 @@ console.log("Explore the scripts/ and modules/ folders to learn more")
     const newPath = parentPath === '/' ? `/${name}` : `${parentPath}/${name}`;
     
     if (this.findNode(newPath)) {
-      throw new Error(`A ${type} with the name "${name}" already exists in this location`);
+      const error = new Error(`A ${type} with the name "${name}" already exists in this location`);
+      (error as any).statusCode = 409;
+      throw error;
     }
     
     const newNode: FileNode = {
@@ -266,9 +277,10 @@ console.log("Explore the scripts/ and modules/ folders to learn more")
       if (parent.type !== 'folder') {
         throw new Error(`Parent path "${parentPath}" is not a folder`);
       }
-      if (parent.children) {
-        parent.children.push(newNode);
+      if (!parent.children) {
+        parent.children = [];
       }
+      parent.children.push(newNode);
     }
 
     return newNode;
@@ -291,7 +303,9 @@ console.log("Explore the scripts/ and modules/ folders to learn more")
     const newPath = parentPath === '/' ? `/${newName}` : `${parentPath}/${newName}`;
     
     if (newPath !== oldPath && this.findNode(newPath)) {
-      throw new Error(`A ${node.type} with the name "${newName}" already exists in this location`);
+      const error = new Error(`A ${node.type} with the name "${newName}" already exists in this location`);
+      (error as any).statusCode = 409;
+      throw error;
     }
     
     node.name = newName;

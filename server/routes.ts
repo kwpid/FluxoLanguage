@@ -95,10 +95,10 @@ export async function registerRoutes(app: Express): Promise<Server> {
       const userStorage = getStorage(authReq.userId, authReq.accessToken);
       const data = createWorkspaceRequestSchema.parse(req.body);
       const workspace = await userStorage.createWorkspace(data.name);
-      res.json(workspace);
+      res.status(201).json(workspace);
     } catch (error: any) {
       console.error('Failed to create workspace:', error);
-      res.status(400).json({ error: error.message || 'Failed to create workspace' });
+      res.status(error.statusCode || 400).json({ error: error.message || 'Failed to create workspace' });
     }
   });
 
@@ -214,10 +214,10 @@ export async function registerRoutes(app: Express): Promise<Server> {
         data.type,
         data.content
       );
-      res.json(newNode);
+      res.status(201).json(newNode);
     } catch (error: any) {
       console.error('Failed to create file:', error);
-      res.status(400).json({ error: error.message || 'Failed to create file' });
+      res.status(error.statusCode || 400).json({ error: error.message || 'Failed to create file' });
     }
   });
 
@@ -243,7 +243,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
       res.json({ success: true });
     } catch (error: any) {
       console.error('Failed to rename file:', error);
-      res.status(400).json({ error: error.message || 'Failed to rename file' });
+      res.status(error.statusCode || 400).json({ error: error.message || 'Failed to rename file' });
     }
   });
 
