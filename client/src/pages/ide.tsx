@@ -33,6 +33,8 @@ export default function IDE() {
   const [output, setOutput] = useState<OutputMessage[]>([]);
   const [isRunning, setIsRunning] = useState(false);
   const currentWorkspaceId = useRef<string | null>(null);
+  const autoSaveTimeouts = useRef<Map<string, NodeJS.Timeout>>(new Map());
+  const lastSavedContent = useRef<Map<string, string>>(new Map());
 
   const { data: workspace, isLoading } = useQuery<WorkspaceState>({
     queryKey: ['/api/workspace'],
@@ -71,6 +73,7 @@ export default function IDE() {
             });
             const data = await response.json();
             setFileContents(prev => ({ ...prev, [path]: data.content }));
+            lastSavedContent.current.set(path, data.content);
           } catch (error) {
             console.error('Failed to load file:', path);
           }
@@ -107,6 +110,7 @@ export default function IDE() {
         const data = await response.json();
         
         setFileContents(prev => ({ ...prev, [path]: data.content }));
+        lastSavedContent.current.set(path, data.content);
         setOpenTabs(prev => [...prev, path]);
         setActiveTab(path);
       } catch (error) {
@@ -122,6 +126,14 @@ export default function IDE() {
   }, [openTabs, toast]);
 
   const closeTab = useCallback((path: string) => {
+    const timeout = autoSaveTimeouts.current.get(path);
+    if (timeout) {
+      clearTimeout(timeout);
+      autoSaveTimeouts.current.delete(path);
+    }
+    
+    lastSavedContent.current.delete(path);
+    
     setOpenTabs(prev => prev.filter(p => p !== path));
     if (activeTab === path) {
       const index = openTabs.indexOf(path);
@@ -135,36 +147,79 @@ export default function IDE() {
     });
   }, [activeTab, openTabs]);
 
-  const updateFileContent = useCallback((path: string, content: string) => {
-    setFileContents(prev => ({ ...prev, [path]: content }));
-    setUnsavedFiles(prev => new Set(prev).add(path));
-  }, []);
-
-  const saveFile = useCallback(async (path: string) => {
+  const performSave = useCallback(async (path: string, contentToSave: string, showToast = false) => {
     try {
       await apiRequest('POST', '/api/files/save', {
         path,
-        content: fileContents[path] || '',
+        content: contentToSave,
       });
       
-      setUnsavedFiles(prev => {
-        const newSet = new Set(prev);
-        newSet.delete(path);
-        return newSet;
+      lastSavedContent.current.set(path, contentToSave);
+      
+      setFileContents(currentContents => {
+        const latestContent = currentContents[path] || '';
+        if (latestContent === contentToSave) {
+          setUnsavedFiles(prev => {
+            const newSet = new Set(prev);
+            newSet.delete(path);
+            return newSet;
+          });
+        }
+        return currentContents;
       });
       
-      toast({
-        title: "Saved",
-        description: `${path.split('/').pop()} saved successfully`,
-      });
+      if (showToast) {
+        toast({
+          title: "Saved",
+          description: `${path.split('/').pop()} saved successfully`,
+        });
+      } else {
+        console.log(`Auto-saved: ${path}`);
+      }
+      
+      return true;
     } catch (error) {
-      toast({
-        title: "Error",
-        description: "Failed to save file",
-        variant: "destructive",
-      });
+      console.error('Save failed:', error);
+      if (showToast) {
+        toast({
+          title: "Error",
+          description: "Failed to save file",
+          variant: "destructive",
+        });
+      }
+      return false;
     }
-  }, [fileContents, toast]);
+  }, [toast]);
+
+  const updateFileContent = useCallback((path: string, content: string) => {
+    setFileContents(prev => ({ ...prev, [path]: content }));
+    
+    const savedContent = lastSavedContent.current.get(path);
+    if (content !== savedContent) {
+      setUnsavedFiles(prev => new Set(prev).add(path));
+    }
+
+    const existingTimeout = autoSaveTimeouts.current.get(path);
+    if (existingTimeout) {
+      clearTimeout(existingTimeout);
+    }
+
+    const newTimeout = setTimeout(() => {
+      performSave(path, content, false);
+    }, 5000);
+
+    autoSaveTimeouts.current.set(path, newTimeout);
+  }, [performSave]);
+
+  const saveFile = useCallback(async (path: string) => {
+    const timeout = autoSaveTimeouts.current.get(path);
+    if (timeout) {
+      clearTimeout(timeout);
+      autoSaveTimeouts.current.delete(path);
+    }
+    
+    await performSave(path, fileContents[path] || '', true);
+  }, [fileContents, performSave]);
 
   const runCode = useCallback(async () => {
     if (!activeTab) return;

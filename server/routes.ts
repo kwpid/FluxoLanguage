@@ -268,7 +268,8 @@ export async function registerRoutes(app: Express): Promise<Server> {
       await userStorage.moveFile(data.sourcePath, data.targetPath);
       res.json({ success: true });
     } catch (error: any) {
-      res.status(400).json({ error: error.message || 'Failed to move file' });
+      console.error('Failed to move file:', error);
+      res.status(error.statusCode || 400).json({ error: error.message || 'Failed to move file' });
     }
   });
 
