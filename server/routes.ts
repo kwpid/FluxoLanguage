@@ -365,9 +365,6 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
   app.post('/api/extensions/toggle', async (req, res) => {
     try {
-      
-      const data = downloadExtensionRequestSchema.parse(req.body);
-    try {
       const data = toggleExtensionRequestSchema.parse(req.body);
       const { toggleExtension } = await import("./extensions-loader");
       toggleExtension(data.id, data.enabled);

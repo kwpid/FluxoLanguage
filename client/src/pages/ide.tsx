@@ -1,7 +1,6 @@
 import { useState, useCallback, useEffect, useRef } from "react";
 import { useQuery, useMutation } from "@tanstack/react-query";
 import { queryClient, apiRequest } from "@/lib/queryClient";
-import { supabase } from "@/lib/supabase";
 import type { FileNode, WorkspaceState, OutputMessage } from "@shared/schema";
 import { FileExplorer } from "@/components/ide/file-explorer";
 import { EditorPanel } from "@/components/ide/editor-panel";
@@ -10,19 +9,6 @@ import { Toolbar } from "@/components/ide/toolbar";
 import { Terminal } from "@/components/ide/terminal";
 import { ResizablePanelGroup, ResizablePanel, ResizableHandle } from "@/components/ui/resizable";
 import { useToast } from "@/hooks/use-toast";
-
-async function getAuthHeaders(): Promise<Record<string, string>> {
-  const headers: Record<string, string> = {};
-  
-  if (supabase) {
-    const { data: { session } } = await supabase.auth.getSession();
-    if (session?.access_token) {
-      headers['Authorization'] = `Bearer ${session.access_token}`;
-    }
-  }
-  
-  return headers;
-}
 
 export default function IDE() {
   const { toast } = useToast();
@@ -67,10 +53,7 @@ export default function IDE() {
         
         workspace.openTabs.forEach(async (path) => {
           try {
-            const authHeaders = await getAuthHeaders();
-            const response = await fetch(`/api/files/content?path=${encodeURIComponent(path)}`, {
-              headers: authHeaders,
-            });
+            const response = await fetch(`/api/files/content?path=${encodeURIComponent(path)}`);
             const data = await response.json();
             setFileContents(prev => ({ ...prev, [path]: data.content }));
             lastSavedContent.current.set(path, data.content);
@@ -103,10 +86,7 @@ export default function IDE() {
   const openFile = useCallback(async (path: string) => {
     if (!openTabs.includes(path)) {
       try {
-        const authHeaders = await getAuthHeaders();
-        const response = await fetch(`/api/files/content?path=${encodeURIComponent(path)}`, {
-          headers: authHeaders,
-        });
+        const response = await fetch(`/api/files/content?path=${encodeURIComponent(path)}`);
         const data = await response.json();
         
         setFileContents(prev => ({ ...prev, [path]: data.content }));
